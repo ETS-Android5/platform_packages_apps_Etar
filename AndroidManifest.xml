@@ -21,6 +21,13 @@
     package="ws.xsoh.etar"
     android:installLocation="auto">
 
+    <!-- Android Studio will complain about not being able to
+         resove the symbol, but it compiles with no problem.
+         Do not remove for as long as there are officially supported
+         devices that were supported in Android 11 -->
+    <!-- suppress AndroidElementNotAllowed -->
+    <original-package android:name="org.lineageos.etar" />
+
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.VIBRATE"/>
@@ -53,7 +60,7 @@
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_label"
-        android:taskAffinity="org.lineageos.etar.task"
+        android:taskAffinity="org.calyxos.etar.task"
         android:requiredAccountType="*"
         android:usesCleartextTraffic="false"
         android:theme="@style/CalendarAppThemeLight">
@@ -197,7 +204,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="org.lineageos.etar.provider"
+            android:authorities="org.calyxos.etar.provider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
@@ -207,7 +214,7 @@
 
         <provider android:name="com.android.calendar.CalendarRecentSuggestionsProvider"
             android:exported="false"
-            android:authorities="org.lineageos.etar.CalendarRecentSuggestionsProvider" />
+            android:authorities="org.calyxos.etar.CalendarRecentSuggestionsProvider" />
 
         <!-- Declarations for alerts/reminders -->
         <activity
