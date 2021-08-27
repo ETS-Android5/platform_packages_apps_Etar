@@ -292,8 +292,10 @@ class GeneralPreferences : PreferenceFragmentCompat(),
                 a.recreate()
             }
             KEY_PURE_BLACK_NIGHT_MODE -> {
-                Utils.sendUpdateWidgetIntent(a)
-                a.recreate()
+                if (themePref.value == "system" && DynamicTheme.isSystemInDarkTheme(a)) {
+                    Utils.sendUpdateWidgetIntent(a)
+                    a.recreate()
+                }
             }
         }
     }
@@ -310,14 +312,16 @@ class GeneralPreferences : PreferenceFragmentCompat(),
 
         when (preference) {
             useHomeTzPref -> {
-                val useHomeTz = newValue as Boolean
-                val tz: String? = if (useHomeTz) {
-                    timeZoneId
-                } else {
-                    CalendarCache.TIMEZONE_TYPE_AUTO
+                if (Utils.isCalendarPermissionGranted(requireContext(), true)) {
+                    val useHomeTz = newValue as Boolean
+                    val tz: String? = if (useHomeTz) {
+                        timeZoneId
+                    } else {
+                        CalendarCache.TIMEZONE_TYPE_AUTO
+                    }
+                    Utils.setTimeZone(activity, tz)
+                    return true
                 }
-                Utils.setTimeZone(activity, tz)
-                return true
             }
             themePref -> {
                 themePref.value = newValue as String
