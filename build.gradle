@@ -167,10 +167,10 @@ android {
     buildToolsVersion '30.0.3'
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 30
         targetSdkVersion 30
-        versionCode 28
-        versionName "1.0.26"
+        versionCode 30
+        versionName "11"
         applicationId "org.calyxos.etar"
     }
 
