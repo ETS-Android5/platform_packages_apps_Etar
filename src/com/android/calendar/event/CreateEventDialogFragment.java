@@ -30,7 +30,6 @@ import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -45,9 +44,13 @@ import com.android.calendar.CalendarController.EventType;
 import com.android.calendar.CalendarEventModel;
 import com.android.calendar.Utils;
 import com.android.calendar.settings.GeneralPreferences;
+import com.android.calendarcommon2.Time;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import ws.xsoh.etar.R;
-
 
 /**
  * Allows the user to quickly create a new all-day event from the calendar's month view.
@@ -60,7 +63,6 @@ public class CreateEventDialogFragment extends DialogFragment implements TextWat
 
     private static final String KEY_DATE_STRING = "date_string";
     private static final String KEY_DATE_IN_MILLIS = "date_in_millis";
-    private static final String EVENT_DATE_FORMAT = "%a, %b %d, %Y";
 
     private AlertDialog mAlertDialog;
 
@@ -93,8 +95,15 @@ public class CreateEventDialogFragment extends DialogFragment implements TextWat
     }
 
     public void setDay(Time day) {
-        mDateString = day.format(EVENT_DATE_FORMAT);
-        mDateInMillis = day.toMillis(true);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        try {
+            Date d = sdf.parse(day.format3339(true));
+            sdf.applyPattern("EEE, MMM dd, yyyy");
+            mDateString = sdf.format(d);
+        } catch (ParseException e) {
+            mDateString = day.format();
+        }
+        mDateInMillis = day.toMillis();
     }
 
     @Override
@@ -296,7 +305,7 @@ public class CreateEventDialogFragment extends DialogFragment implements TextWat
 
         mCalendarId = cursor.getLong(calendarIdIndex);
         mCalendarOwner = cursor.getString(calendarOwnerIndex);
-        mColor.setBackgroundColor(Utils.getDisplayColorFromColor(cursor
+        mColor.setBackgroundColor(Utils.getDisplayColorFromColor(getActivity(), cursor
                 .getInt(colorIndex)));
         String accountName = cursor.getString(accountNameIndex);
         String calendarName = cursor.getString(calendarNameIndex);

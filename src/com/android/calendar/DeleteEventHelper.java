@@ -29,13 +29,13 @@ import android.net.Uri;
 import android.provider.CalendarContract;
 import android.provider.CalendarContract.Events;
 import android.text.TextUtils;
-import android.text.format.Time;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 
 import com.android.calendar.event.EditEventHelper;
 import com.android.calendar.persistence.CalendarRepository;
 import com.android.calendarcommon2.EventRecurrence;
+import com.android.calendarcommon2.Time;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -180,7 +180,7 @@ public class DeleteEventHelper {
                 }
                 cursor.moveToFirst();
                 CalendarEventModel mModel = new CalendarEventModel();
-                EditEventHelper.setModelFromCursor(mModel, cursor);
+                EditEventHelper.setModelFromCursor(mModel, cursor, mContext);
                 cursor.close();
                 DeleteEventHelper.this.delete(mStartMillis, mEndMillis, mModel, mWhichDelete);
             }
@@ -417,11 +417,11 @@ public class DeleteEventHelper {
                 eventRecurrence.parse(rRule);
                 Time date = new Time();
                 if (allDay) {
-                    date.timezone = Time.TIMEZONE_UTC;
+                    date.setTimezone(Time.TIMEZONE_UTC);
                 }
                 date.set(mStartMillis);
-                date.second--;
-                date.normalize(false);
+                date.setSecond(date.getSecond() -1 );
+                date.normalize();
 
                 // Google calendar seems to require the UNTIL string to be
                 // in UTC.

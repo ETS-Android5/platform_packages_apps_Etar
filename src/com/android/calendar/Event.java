@@ -16,22 +16,18 @@
 
 package com.android.calendar;
 
-import android.Manifest;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Debug;
 import android.provider.CalendarContract.Attendees;
 import android.provider.CalendarContract.Calendars;
 import android.provider.CalendarContract.Events;
 import android.provider.CalendarContract.Instances;
-import androidx.core.content.ContextCompat;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -319,7 +315,7 @@ public class Event implements Cloneable {
         // get sorted in the correct order
         cEvents.moveToPosition(-1);
         while (cEvents.moveToNext()) {
-            Event e = generateEventFromCursor(cEvents);
+            Event e = generateEventFromCursor(cEvents, context);
             if (e.startDay > endDay || e.endDay < startDay) {
                 continue;
             }
@@ -331,7 +327,7 @@ public class Event implements Cloneable {
      * @param cEvents Cursor pointing at event
      * @return An event created from the cursor
      */
-    private static Event generateEventFromCursor(Cursor cEvents) {
+    private static Event generateEventFromCursor(Cursor cEvents, Context context) {
         Event e = new Event();
 
         e.id = cEvents.getLong(PROJECTION_EVENT_ID_INDEX);
@@ -347,7 +343,7 @@ public class Event implements Cloneable {
 
         if (!cEvents.isNull(PROJECTION_COLOR_INDEX)) {
             // Read the color from the database
-            e.color = Utils.getDisplayColorFromColor(cEvents.getInt(PROJECTION_COLOR_INDEX));
+            e.color = Utils.getDisplayColorFromColor(context, cEvents.getInt(PROJECTION_COLOR_INDEX));
         } else {
             e.color = mNoColorColor;
         }

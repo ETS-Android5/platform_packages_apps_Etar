@@ -38,6 +38,7 @@
     <string name="no_title_label">(No title)</string>
 
     <!-- Reminder format strings -->
+    <string name="no_reminder_label">None</string>
     <plurals name="Nminutes">
         <!-- This is the label for a 1-minute reminder. -->
         <item quantity="one">1 minute</item>
@@ -75,6 +76,16 @@
         <!-- This is the label for a reminder of 2 or more days. The actual number of
              days is a parameter. -->
         <item quantity="other"><xliff:g id="count">%d</xliff:g> days</item>
+    </plurals>
+    <!-- This is the number of weeks displayed for a calendar reminder.  For example,
+         a reminder of 2 weeks would be displayed as '2 weeks'.  The translation
+         should use the shortest acceptable abbreviation of 'week' to save space. -->
+    <plurals name="Nweeks">
+        <!-- This is the label for a reminder of 1 week. -->
+        <item quantity="one">1 week</item>
+        <!-- This is the label for a reminder of 2 or more weeks. The actual number of
+             weeks is a parameter. -->
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> weeks</item>
     </plurals>
     <!-- This is for displaying the week of the year near the date. Eg. "January, 2011 Week 1" -->
     <plurals name="weekN">
@@ -196,8 +207,9 @@
     <string name="alert_title">Calendar notifications</string>
     <!-- Notification window messages: -->
     <skip/>
-    <string name="foreground_notification_channel_name">Alert sync</string>
-    <string name="foreground_notification_channel_description">Foreground notification required for internal alert sync.</string>
+    <string name="foreground_notification_title">Scheduling new reminders…</string>
+    <string name="foreground_notification_channel_name">Background tasks</string>
+    <string name="foreground_notification_channel_description">Notifications required for internal sync. You can safely hide this channel.</string>
 
     <!-- Event info/edit screen labels:-->
     <skip/>
@@ -456,6 +468,8 @@
     <string name="preferences_color_red" translatable="false">Red</string>
     <string name="preferences_color_purple" translatable="false">Purple</string>
     <string name="preferences_color_pick">Primary color</string>
+
+    <string name="preferences_real_event_colors">Use real event colors</string>
 
     <string name="preferences_pure_black_night_mode">Pure black night mode</string>
 
@@ -781,5 +795,6 @@
     <string name="preferences_menu_about">About Calendar</string>
 
     <string name="offline_account_name">Offline Calendar</string>
+    <string name="after_start_of_event">after start of event</string>
 
 </resources>

@@ -20,7 +20,6 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.provider.CalendarContract.Attendees;
-import android.text.format.Time;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
@@ -36,6 +35,7 @@ import com.android.calendar.Utils;
 import com.android.calendar.agenda.AgendaAdapter.ViewHolder;
 import com.android.calendar.agenda.AgendaWindowAdapter.AgendaItem;
 import com.android.calendar.agenda.AgendaWindowAdapter.DayAdapterInfo;
+import com.android.calendarcommon2.Time;
 
 import ws.xsoh.etar.R;
 
@@ -133,7 +133,7 @@ public class AgendaListView extends ListView implements OnItemClickListener {
         long now = System.currentTimeMillis();
         Time time = new Time(mTimeZone);
         time.set(now);
-        int todayJulianDay = Time.getJulianDay(now, time.gmtoff);
+        int todayJulianDay = Time.getJulianDay(now, time.getGmtOffset());
 
         // Go over views in list
         for (int i = 0; i < childCount; ++i) {
@@ -216,7 +216,7 @@ public class AgendaListView extends ListView implements OnItemClickListener {
         }
         mTime.set(time);
         mTime.switchTimezone(mTimeZone);
-        mTime.normalize(true);
+        mTime.normalize();
         if (DEBUG) {
             Log.d(TAG, "Goto with time " + mTime.toString());
         }
@@ -272,18 +272,18 @@ public class AgendaListView extends ListView implements OnItemClickListener {
             Time t = new Time(mTimeZone);
             t.set(agendaItem.begin);
             // Save and restore the time since setJulianDay sets the time to 00:00:00
-            int hour = t.hour;
-            int minute = t.minute;
-            int second = t.second;
+            int hour = t.getHour();
+            int minute = t.getMinute();
+            int second = t.getSecond();
             t.setJulianDay(agendaItem.startDay);
-            t.hour = hour;
-            t.minute = minute;
-            t.second = second;
+            t.setHour(hour);
+            t.setMinute(minute);
+            t.setSecond(second);
             if (DEBUG) {
-                t.normalize(true);
+                t.normalize();
                 Log.d(TAG, "first position had time " + t.toString());
             }
-            return t.normalize(false);
+            return t.normalize();
         }
         return 0;
     }
@@ -334,7 +334,7 @@ public class AgendaListView extends ListView implements OnItemClickListener {
             return false;
         }
         int start = getPositionForView(child);
-        long milliTime = startTime.toMillis(true);
+        long milliTime = startTime.toMillis();
         int childCount = getChildCount();
         int eventsInAdapter = mWindowAdapter.getCount();
 

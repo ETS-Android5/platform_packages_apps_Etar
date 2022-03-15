@@ -33,6 +33,10 @@
             app:entries="@array/pref_color_entries"
             app:entryValues="@array/pref_color_values"
             app:defaultValue="teal" />
+        <SwitchPreference
+            app:key="pref_real_event_colors"
+            app:defaultValue="false"
+            app:title="@string/preferences_real_event_colors" />
         <ListPreference
             app:key="preferences_default_start"
             app:defaultValue="-2"
@@ -131,7 +135,6 @@
             app:key="preferences_default_reminder"
             app:defaultValue="@string/preferences_default_reminder_default"
             app:title="@string/preferences_default_reminder_title"
-            app:entries="@array/preferences_default_reminder_labels"
             app:entryValues="@array/preferences_default_reminder_values"
             app:dialogTitle="@string/preferences_default_reminder_dialog" />
 
@@ -140,13 +143,14 @@
             app:fragment="com.android.calendar.settings.QuickResponsePreferences"
             app:title="@string/quick_response_settings"
             app:summary="@string/quick_response_settings_summary" />
-     </PreferenceCategory>
+    </PreferenceCategory>
     <PreferenceCategory
         app:key="preferences_experimental_category"
         app:title="@string/preferences_experimental_category">
         <Preference
             app:key="preferences_copy_db"
-            app:title="@string/copy_db" />
+            app:title="@string/copy_db"
+            app:isPreferenceVisible="false" />
 
         <ListPreference
             app:key="preferences_reminders_responded"

@@ -20,6 +20,7 @@ package com.android.calendar.widget;
 import com.android.calendar.widget.CalendarAppWidgetModel.EventInfo;
 import com.android.calendar.widget.CalendarAppWidgetService.CalendarFactory;
 import com.android.calendar.Utils;
+import com.android.calendarcommon2.Time;
 
 import android.content.Context;
 import android.database.MatrixCursor;
@@ -27,7 +28,6 @@ import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.test.suitebuilder.annotation.Suppress;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.View;
 
@@ -80,12 +80,12 @@ public class CalendarAppWidgetServiceTest extends AndroidTestCase {
 
         // Set the "current time" to 2am tomorrow.
         Time time = new Time();
-        time.setToNow();
-        time.monthDay += 1;
-        time.hour = 2;
-        time.minute = 0;
-        time.second = 0;
-        now = time.normalize(false);
+        time.set(System.currentTimeMillis());
+        time.setDay(time.getDay() + 1);
+        time.setHour(2);
+        time.setMinute(0);
+        time.setSecond(0);
+        now = time.normalize();
     }
 
     @Override
@@ -97,8 +97,8 @@ public class CalendarAppWidgetServiceTest extends AndroidTestCase {
 
     @SmallTest
     public void testGetAppWidgetModel_1Event() throws Exception {
-        CalendarAppWidgetModel expected = new CalendarAppWidgetModel(getContext(), Time
-                .getCurrentTimezone());
+        CalendarAppWidgetModel expected = new CalendarAppWidgetModel(getContext(),
+                Utils.getCurrentTimezone());
         MatrixCursor cursor = new MatrixCursor(CalendarAppWidgetService.EVENT_PROJECTION, 0);
 
 
@@ -119,7 +119,7 @@ public class CalendarAppWidgetServiceTest extends AndroidTestCase {
 
         // Test
         CalendarAppWidgetModel actual = CalendarFactory.buildAppWidgetModel(
-                getContext(), cursor, Time.getCurrentTimezone());
+                getContext(), cursor, Utils.getCurrentTimezone());
 
         assertEquals(expected.toString(), actual.toString());
     }
@@ -127,8 +127,8 @@ public class CalendarAppWidgetServiceTest extends AndroidTestCase {
     @SmallTest
     public void testGetAppWidgetModel_AllDayEventLater() throws Exception {
         Context context = getContext();
-        CalendarAppWidgetModel expected = new CalendarAppWidgetModel(getContext(), Time
-                .getCurrentTimezone());
+        CalendarAppWidgetModel expected = new CalendarAppWidgetModel(getContext(),
+                Utils.getCurrentTimezone());
         MatrixCursor cursor = new MatrixCursor(CalendarAppWidgetService.EVENT_PROJECTION, 0);
 
         int i = 0;
@@ -149,12 +149,12 @@ public class CalendarAppWidgetServiceTest extends AndroidTestCase {
         // Set the start time to 5 days from now at midnight UTC.
         Time time = new Time();
         time.set(now);
-        time.monthDay += 5;
-        time.hour = 0;
-        time.timezone = Time.TIMEZONE_UTC;
-        long start = time.normalize(false);
-        time.monthDay += 1;
-        long end = time.normalize(false);
+        time.setDay(time.getDay() + 5);
+        time.setHour(0);
+        time.setTimezone(Time.TIMEZONE_UTC);
+        long start = time.normalize();
+        time.setDay(time.getDay() + 1);
+        long end = time.normalize();
 
         eventInfo = new EventInfo();
         eventInfo.visibWhen = View.VISIBLE;
@@ -168,7 +168,7 @@ public class CalendarAppWidgetServiceTest extends AndroidTestCase {
 
         // Test
         CalendarAppWidgetModel actual = CalendarAppWidgetService.CalendarFactory.buildAppWidgetModel(
-                context, cursor, Time.getCurrentTimezone());
+                context, cursor, Utils.getCurrentTimezone());
 
         Log.e("Test", " expected: " + expected.toString()
             + " actual: " + actual.toString());

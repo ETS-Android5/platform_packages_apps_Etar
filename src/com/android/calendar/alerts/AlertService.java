@@ -42,15 +42,16 @@ import android.os.Process;
 import android.provider.CalendarContract;
 import android.provider.CalendarContract.Attendees;
 import android.provider.CalendarContract.CalendarAlerts;
-import androidx.core.app.NotificationCompat;
-import androidx.core.content.ContextCompat;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.util.Log;
+
+import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 
 import com.android.calendar.Utils;
 import com.android.calendar.settings.GeneralPreferences;
+import com.android.calendarcommon2.Time;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -64,7 +65,7 @@ import ws.xsoh.etar.R;
  */
 public class AlertService extends Service {
 
-    public static final String ALERT_CHANNEL_ID = "alert_channel_01";// The id of the channel.
+    public static final String ALERT_CHANNEL_ID = "alert_channel_01";
     public static final String FOREGROUND_CHANNEL_ID = "foreground_channel_01";
 
     // Hard limit to the number of notifications displayed.
@@ -323,7 +324,7 @@ public class AlertService extends Service {
                 Time time = new Time();
                 time.set(nextRefreshTime);
                 String msg = String.format("Scheduling next notification refresh in %d min at: "
-                        + "%d:%02d", minutesBeforeRefresh, time.hour, time.minute);
+                        + "%d:%02d", minutesBeforeRefresh, time.getHour(), time.getMinute());
                 Log.d(TAG, msg);
             }
         } else if (nextRefreshTime < currentTime) {
@@ -414,9 +415,9 @@ public class AlertService extends Service {
         if (info.allDay) {
             Time t = new Time();
             startAdjustedForAllDay = Utils.convertAlldayUtcToLocal(t, info.startMillis,
-                    Time.getCurrentTimezone());
+                    Utils.getCurrentTimezone());
             endAdjustedForAllDay = Utils.convertAlldayUtcToLocal(t, info.startMillis,
-                    Time.getCurrentTimezone());
+                    Utils.getCurrentTimezone());
         }
 
         // We change an event's priority bucket at 15 minutes into the event or 1/4 event duration.
@@ -925,7 +926,7 @@ public class AlertService extends Service {
 
                 createChannels(this);
                 Notification notification = new NotificationCompat.Builder(this, FOREGROUND_CHANNEL_ID)
-                        .setContentTitle("Event notifications")
+                        .setContentTitle(getString(R.string.foreground_notification_title))
                         .setSmallIcon(R.drawable.stat_notify_calendar)
                         .setShowWhen(false)
                         .build();

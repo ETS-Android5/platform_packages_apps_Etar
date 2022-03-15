@@ -22,12 +22,12 @@ import android.database.Cursor;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.view.View;
 import android.widget.ResourceCursorAdapter;
 import android.widget.TextView;
 
 import com.android.calendar.Utils;
+import com.android.calendarcommon2.Time;
 
 import java.util.Locale;
 import java.util.TimeZone;
@@ -94,12 +94,11 @@ public class AlertAdapter extends ResourceCursorAdapter {
 
         Time time = new Time(tz);
         time.set(startMillis);
-        boolean isDST = time.isDst != 0;
         StringBuilder sb = new StringBuilder(
                 Utils.formatDateRange(context, startMillis, endMillis, flags));
-        if (!allDay && tz != Time.getCurrentTimezone()) {
+        if (!allDay && tz != Utils.getCurrentTimezone()) {
             sb.append(" ").append(TimeZone.getTimeZone(tz).getDisplayName(
-                    isDST, TimeZone.SHORT, Locale.getDefault()));
+                    false, TimeZone.SHORT, Locale.getDefault()));
         }
 
         when = sb.toString();
@@ -117,7 +116,7 @@ public class AlertAdapter extends ResourceCursorAdapter {
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
         View square = view.findViewById(R.id.color_square);
-        int color = Utils.getDisplayColorFromColor(cursor.getInt(AlertActivity.INDEX_COLOR));
+        int color = Utils.getDisplayColorFromColor(context, cursor.getInt(AlertActivity.INDEX_COLOR));
         square.setBackgroundColor(color);
 
         // Repeating info

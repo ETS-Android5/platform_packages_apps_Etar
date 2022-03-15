@@ -20,12 +20,11 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Paint;
-import android.provider.CalendarContract.Events;
 import android.provider.CalendarContract.Attendees;
+import android.provider.CalendarContract.Events;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -35,6 +34,7 @@ import android.widget.TextView;
 import com.android.calendar.ColorChipView;
 import com.android.calendar.DynamicTheme;
 import com.android.calendar.Utils;
+import com.android.calendarcommon2.Time;
 
 import java.util.Formatter;
 import java.util.Locale;
@@ -165,7 +165,7 @@ public class AgendaAdapter extends ResourceCursorAdapter {
         holder.instanceId = cursor.getLong(AgendaWindowAdapter.INDEX_INSTANCE_ID);
 
         /* Calendar Color */
-        int color = Utils.getDisplayColorFromColor(cursor.getInt(AgendaWindowAdapter.INDEX_COLOR));
+        int color = Utils.getDisplayColorFromColor(context, cursor.getInt(AgendaWindowAdapter.INDEX_COLOR));
         holder.colorChip.setColor(color);
 
         // What
@@ -205,7 +205,7 @@ public class AgendaAdapter extends ResourceCursorAdapter {
             if (tz == null || tz.getID().equals("GMT")) {
                 displayName = tzString;
             } else {
-                displayName = tz.getDisplayName(date.isDst != 0, TimeZone.SHORT);
+                displayName = tz.getDisplayName(false, TimeZone.SHORT);
             }
             whenString += " (" + displayName + ")";
         }

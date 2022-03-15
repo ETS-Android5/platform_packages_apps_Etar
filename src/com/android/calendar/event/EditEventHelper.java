@@ -30,7 +30,6 @@ import android.provider.CalendarContract.Events;
 import android.provider.CalendarContract.Reminders;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.text.util.Rfc822Token;
 import android.text.util.Rfc822Tokenizer;
 import android.util.Log;
@@ -46,6 +45,7 @@ import com.android.calendarcommon2.DateException;
 import com.android.calendarcommon2.EventRecurrence;
 import com.android.calendarcommon2.RecurrenceProcessor;
 import com.android.calendarcommon2.RecurrenceSet;
+import com.android.calendarcommon2.Time;
 import com.android.common.Rfc822Validator;
 
 import java.util.ArrayList;
@@ -605,9 +605,9 @@ public class EditEventHelper {
     protected long constructDefaultStartTime(long now) {
         Time defaultStart = new Time();
         defaultStart.set(now);
-        defaultStart.second = 0;
-        defaultStart.minute = 30;
-        long defaultStartMillis = defaultStart.toMillis(false);
+        defaultStart.setSecond(0);
+        defaultStart.setMinute(30);
+        long defaultStartMillis = defaultStart.toMillis();
         if (now < defaultStartMillis) {
             return defaultStartMillis;
         } else {
@@ -676,10 +676,10 @@ public class EditEventHelper {
             if (newAllDay) {
                 Time time = new Time(Time.TIMEZONE_UTC);
                 time.set(oldStartMillis);
-                time.hour = 0;
-                time.minute = 0;
-                time.second = 0;
-                oldStartMillis = time.toMillis(false);
+                time.setHour(0);
+                time.setMinute(0);
+                time.setSecond(0);
+                oldStartMillis = time.toMillis();
             }
             values.put(Events.DTSTART, oldStartMillis);
         }
@@ -712,7 +712,7 @@ public class EditEventHelper {
         // Get the start time of the first instance in the original recurrence.
         long startTimeMillis = originalModel.mStart;
         Time dtstart = new Time();
-        dtstart.timezone = originalModel.mTimezone;
+        dtstart.setTimezone(originalModel.mTimezone);
         dtstart.set(startTimeMillis);
 
         ContentValues updateValues = new ContentValues();
@@ -756,31 +756,31 @@ public class EditEventHelper {
             // must include just the date field, and not the time field. The
             // repeating events repeat up to and including the "until" time.
             Time untilTime = new Time();
-            untilTime.timezone = Time.TIMEZONE_UTC;
+            untilTime.setTimezone(Time.TIMEZONE_UTC);
 
             // Subtract one second from the old begin time to get the new
             // "until" time.
             untilTime.set(endTimeMillis - 1000); // subtract one second (1000 millis)
             if (origAllDay) {
-                untilTime.hour = 0;
-                untilTime.minute = 0;
-                untilTime.second = 0;
-                untilTime.allDay = true;
-                untilTime.normalize(false);
+                untilTime.setHour(0);
+                untilTime.setMinute(0);
+                untilTime.setSecond(0);
+                untilTime.setAllDay(true);
+                untilTime.normalize();
 
                 // This should no longer be necessary -- DTSTART should already be in the correct
                 // format for an all-day event.
-                dtstart.hour = 0;
-                dtstart.minute = 0;
-                dtstart.second = 0;
-                dtstart.allDay = true;
-                dtstart.timezone = Time.TIMEZONE_UTC;
+                dtstart.setHour(0);
+                dtstart.setMinute(0);
+                dtstart.setSecond(0);
+                dtstart.setAllDay(true);
+                dtstart.setTimezone(Time.TIMEZONE_UTC);
             }
             origRecurrence.until = untilTime.format2445();
         }
 
         updateValues.put(Events.RRULE, origRecurrence.toString());
-        updateValues.put(Events.DTSTART, dtstart.normalize(true));
+        updateValues.put(Events.DTSTART, dtstart.normalize());
         ContentProviderOperation.Builder b =
                 ContentProviderOperation.newUpdate(Uri.parse(originalModel.mUri))
                 .withValues(updateValues);
@@ -991,7 +991,7 @@ public class EditEventHelper {
             Time startTime = new Time(model.mTimezone);
             startTime.set(model.mStart);
 
-            days[0] = EventRecurrence.timeDay2Day(startTime.weekDay);
+            days[0] = EventRecurrence.timeDay2Day(startTime.getWeekDay());
             // not sure why this needs to be zero, but set it for now.
             dayNum[0] = 0;
 
@@ -1005,7 +1005,7 @@ public class EditEventHelper {
             int[] bymonthday = new int[1];
             Time startTime = new Time(model.mTimezone);
             startTime.set(model.mStart);
-            bymonthday[0] = startTime.monthDay;
+            bymonthday[0] = startTime.getDay();
             eventRecurrence.bymonthday = bymonthday;
         } else if (selection == REPEATS_MONTHLY_ON_DAY_COUNT) {
             eventRecurrence.freq = EventRecurrence.MONTHLY;
@@ -1017,12 +1017,12 @@ public class EditEventHelper {
             Time startTime = new Time(model.mTimezone);
             startTime.set(model.mStart);
             // Compute the week number (for example, the "2nd" Monday)
-            int dayCount = 1 + ((startTime.monthDay - 1) / 7);
+            int dayCount = 1 + ((startTime.getDay() - 1) / 7);
             if (dayCount == 5) {
                 dayCount = -1;
             }
             bydayNum[0] = dayCount;
-            byday[0] = EventRecurrence.timeDay2Day(startTime.weekDay);
+            byday[0] = EventRecurrence.timeDay2Day(startTime.getWeekDay());
             eventRecurrence.byday = byday;
             eventRecurrence.bydayNum = bydayNum;
         } else if (selection == REPEATS_YEARLY) {
@@ -1042,7 +1042,7 @@ public class EditEventHelper {
      * @param model The model to fill in
      * @param cursor An event cursor that used {@link #EVENT_PROJECTION} for the query
      */
-    public static void setModelFromCursor(CalendarEventModel model, Cursor cursor) {
+    public static void setModelFromCursor(CalendarEventModel model, Cursor cursor, Context context) {
         if (model == null || cursor == null || cursor.getCount() != 1) {
             Log.wtf(TAG, "Attempted to build non-existent model or from an incorrect query.");
             return;
@@ -1087,7 +1087,7 @@ public class EditEventHelper {
         } else {
             rawEventColor = cursor.getInt(EVENT_INDEX_EVENT_COLOR);
         }
-        model.setEventColor(Utils.getDisplayColorFromColor(rawEventColor));
+        model.setEventColor(Utils.getDisplayColorFromColor(context, rawEventColor));
 
         model.mAccessLevel = accessLevel;
         model.mEventStatus = cursor.getInt(EVENT_INDEX_EVENT_STATUS);
@@ -1113,7 +1113,7 @@ public class EditEventHelper {
      * @param cursor An event cursor that used {@link #CALENDARS_PROJECTION} for the query
      * @return returns true if model was updated with the info in the cursor.
      */
-    public static boolean setModelFromCalendarCursor(CalendarEventModel model, Cursor cursor) {
+    public static boolean setModelFromCalendarCursor(CalendarEventModel model, Cursor cursor, Context context) {
         if (model == null || cursor == null) {
             Log.wtf(TAG, "Attempted to build non-existent model or from an incorrect query.");
             return false;
@@ -1139,7 +1139,7 @@ public class EditEventHelper {
 
             model.mCalendarAccessLevel = cursor.getInt(CALENDARS_INDEX_ACCESS_LEVEL);
             model.mCalendarDisplayName = cursor.getString(CALENDARS_INDEX_DISPLAY_NAME);
-            model.setCalendarColor(Utils.getDisplayColorFromColor(
+            model.setCalendarColor(Utils.getDisplayColorFromColor(context,
                     cursor.getInt(CALENDARS_INDEX_COLOR)));
 
             model.mCalendarAccountName = cursor.getString(CALENDARS_INDEX_ACCOUNT_NAME);
@@ -1238,25 +1238,25 @@ public class EditEventHelper {
             // Reset start and end time, ensure at least 1 day duration, and set
             // the timezone to UTC, as required for all-day events.
             timezone = Time.TIMEZONE_UTC;
-            startTime.hour = 0;
-            startTime.minute = 0;
-            startTime.second = 0;
-            startTime.timezone = timezone;
-            startMillis = startTime.normalize(true);
+            startTime.setHour(0);
+            startTime.setMinute(0);
+            startTime.setSecond(0);
+            startTime.setTimezone(timezone);
+            startMillis = startTime.normalize();
 
-            endTime.hour = 0;
-            endTime.minute = 0;
-            endTime.second = 0;
-            endTime.timezone = timezone;
-            endMillis = endTime.normalize(true);
+            endTime.setHour(0);
+            endTime.setMinute(0);
+            endTime.setSecond(0);
+            endTime.setTimezone(timezone);
+            endMillis = endTime.normalize();
             if (endMillis < startMillis + DateUtils.DAY_IN_MILLIS) {
                 // EditEventView#fillModelFromUI() should treat this case, but we want to ensure
                 // the condition anyway.
                 endMillis = startMillis + DateUtils.DAY_IN_MILLIS;
             }
         } else {
-            startMillis = startTime.toMillis(true);
-            endMillis = endTime.toMillis(true);
+            startMillis = startTime.toMillis();
+            endMillis = endTime.toMillis();
         }
 
         values.put(Events.CALENDAR_ID, calendarId);
@@ -1327,7 +1327,7 @@ public class EditEventHelper {
         // Start to figure out what the nearest weekday is.
         int closestWeekday = Integer.MAX_VALUE;
         int weekstart = EventRecurrence.day2TimeDay(mEventRecurrence.wkst);
-        int startDay = startTime.weekDay;
+        int startDay = startTime.getWeekDay();
         for (int i = 0; i < mEventRecurrence.bydayCount; i++) {
             int day = EventRecurrence.day2TimeDay(mEventRecurrence.byday[i]);
             if (day == startDay) {
@@ -1360,10 +1360,10 @@ public class EditEventHelper {
             closestWeekday += 7;
         }
         int daysOffset = closestWeekday - startDay;
-        startTime.monthDay += daysOffset;
-        endTime.monthDay += daysOffset;
-        long newStartTime = startTime.normalize(true);
-        long newEndTime = endTime.normalize(true);
+        startTime.setDay(startTime.getDay() + daysOffset);
+        endTime.setDay(endTime.getDay() + daysOffset);
+        long newStartTime = startTime.normalize();
+        long newEndTime = endTime.normalize();
 
         // Later we'll actually be using the values from the model rather than the startTime
         // and endTime themselves, so we need to make these changes to the model as well.

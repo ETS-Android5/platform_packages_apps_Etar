@@ -16,6 +16,11 @@
 
 package com.android.calendar;
 
+import static android.provider.CalendarContract.EXTRA_EVENT_ALL_DAY;
+import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
+import static android.provider.CalendarContract.EXTRA_EVENT_END_TIME;
+import static com.android.calendar.CalendarController.EVENT_EDIT_ON_LAUNCH;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
@@ -55,14 +60,9 @@ import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.Intents;
 import android.provider.ContactsContract.QuickContact;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.content.FileProvider;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
-import android.text.format.Time;
 import android.text.method.LinkMovementMethod;
 import android.text.method.MovementMethod;
 import android.text.style.ForegroundColorSpan;
@@ -86,6 +86,7 @@ import android.view.accessibility.AccessibilityManager;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -93,6 +94,11 @@ import android.widget.RadioGroup.OnCheckedChangeListener;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.FileProvider;
 
 import com.android.calendar.CalendarController.EventInfo;
 import com.android.calendar.CalendarController.EventType;
@@ -112,6 +118,7 @@ import com.android.calendar.settings.GeneralPreferences;
 import com.android.calendarcommon2.DateException;
 import com.android.calendarcommon2.Duration;
 import com.android.calendarcommon2.EventRecurrence;
+import com.android.calendarcommon2.Time;
 import com.android.colorpicker.ColorPickerSwatch.OnColorSelectedListener;
 import com.android.colorpicker.HsvColorComparator;
 
@@ -124,11 +131,6 @@ import java.util.List;
 
 import ws.xsoh.etar.BuildConfig;
 import ws.xsoh.etar.R;
-
-import static android.provider.CalendarContract.EXTRA_EVENT_ALL_DAY;
-import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
-import static android.provider.CalendarContract.EXTRA_EVENT_END_TIME;
-import static com.android.calendar.CalendarController.EVENT_EDIT_ON_LAUNCH;
 
 public class EventInfoFragment extends DialogFragment implements OnCheckedChangeListener,
         CalendarController.EventHandler, OnClickListener, DeleteEventHelper.DeleteNotifyListener,
@@ -356,6 +358,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     private TextView mTitle;
     private TextView mWhenDateTime;
     private TextView mWhere;
+    private TextView mWhenRepeat;
     private ExpandableTextView mDesc;
     private AttendeesView mLongAttendees;
     private Button emailAttendeesButton;
@@ -780,6 +783,8 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         mTitle = (TextView) mView.findViewById(R.id.title);
         mWhenDateTime = (TextView) mView.findViewById(R.id.when_datetime);
         mWhere = (TextView) mView.findViewById(R.id.where);
+        mWhenRepeat = (TextView) mView.findViewById(R.id.when_repeat);
+
         mDesc =  mView.findViewById(R.id.description);
         mHeadlines = mView.findViewById(R.id.event_info_headline);
         mLongAttendees = (AttendeesView) mView.findViewById(R.id.long_attendee_list);
@@ -1206,7 +1211,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                     shareIntent.putExtra(Intent.EXTRA_STREAM, icsFile);
                     // The ics file is sent as an extra, the receiving application decides whether
                     // to parse the file to extract calendar events or treat it as a regular file
-                    shareIntent.setType("application/octet-stream");
+                    shareIntent.setType("text/calendar");
 
                     Intent chooserIntent = Intent.createChooser(shareIntent,
                             getResources().getString(R.string.cal_share_intent_title));
@@ -1292,6 +1297,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             boolean eventColorSaved = saveEventColor();
             if (saveReminders() || responseSaved || eventColorSaved) {
                 Toast.makeText(getActivity(), R.string.saving_event, Toast.LENGTH_SHORT).show();
+                Utils.sendUpdateWidgetIntent(mContext);
             }
         }
         super.onStop();
@@ -1479,7 +1485,6 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         String location = mEventCursor.getString(EVENT_INDEX_EVENT_LOCATION);
         String description = mEventCursor.getString(EVENT_INDEX_DESCRIPTION);
         String rRule = mEventCursor.getString(EVENT_INDEX_RRULE);
-        String eventTimezone = mEventCursor.getString(EVENT_INDEX_EVENT_TIMEZONE);
 
         mHeadlines.setBackgroundColor(mCurrentColor);
 
@@ -1495,48 +1500,24 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         }
 
         // When
-        // Set the date and repeats (if any)
-        String localTimezone = Utils.getTimeZone(mActivity, mTZUpdater);
-
-        Resources resources = context.getResources();
-        String displayedDatetime = Utils.getDisplayedDatetime(mStartMillis, mEndMillis,
-                System.currentTimeMillis(), localTimezone, mAllDay, context);
-
-        String displayedTimezone = null;
-        if (!mAllDay) {
-            displayedTimezone = Utils.getDisplayedTimezone(mStartMillis, localTimezone,
-                    eventTimezone);
-        }
-        // Display the datetime.  Make the timezone (if any) transparent.
-        if (displayedTimezone == null) {
-            setTextCommon(view, R.id.when_datetime, displayedDatetime);
-        } else {
-            int timezoneIndex = displayedDatetime.length();
-            displayedDatetime += "  " + displayedTimezone;
-            SpannableStringBuilder sb = new SpannableStringBuilder(displayedDatetime);
-            ForegroundColorSpan transparentColorSpan = new ForegroundColorSpan(
-                    resources.getColor(R.color.event_info_headline_transparent_color));
-            sb.setSpan(transparentColorSpan, timezoneIndex, displayedDatetime.length(),
-                    Spannable.SPAN_INCLUSIVE_INCLUSIVE);
-            setTextCommon(view, R.id.when_datetime, sb);
-        }
+        updateWhenTextView(view);
 
         // Display the repeat string (if any)
         String repeatString = null;
         if (!TextUtils.isEmpty(rRule)) {
             EventRecurrence eventRecurrence = new EventRecurrence();
             eventRecurrence.parse(rRule);
-            Time date = new Time(localTimezone);
+            Time date = new Time(Utils.getTimeZone(mActivity, mTZUpdater));
             date.set(mStartMillis);
             if (mAllDay) {
-                date.timezone = Time.TIMEZONE_UTC;
+                date.setTimezone(Time.TIMEZONE_UTC);
             }
             eventRecurrence.setStartDate(date);
-            repeatString = EventRecurrenceFormatter.getRepeatString(mContext, resources,
+            repeatString = EventRecurrenceFormatter.getRepeatString(mContext, context.getResources(),
                     eventRecurrence, true);
         }
         if (repeatString == null) {
-            view.findViewById(R.id.when_repeat).setVisibility(View.GONE);
+            mWhenRepeat.setVisibility(View.GONE);
         } else {
             setTextCommon(view, R.id.when_repeat, repeatString);
         }
@@ -1551,6 +1532,10 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             final TextView textView = mWhere;
             if (textView != null) {
                 textView.setAutoLinkMask(0);
+                final int textColor = Utils.getAdaptiveTextColor(context,
+                        getResources().getColor(R.color.event_info_headline_color), mCurrentColor);
+                textView.setTextColor(textColor);
+                textView.setLinkTextColor(textColor);
                 textView.setText(location.trim());
                 try {
                     textView.setText(Utils.extendedLinkify(textView.getText().toString(), true));
@@ -1590,6 +1575,62 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
 
         // Launch Custom App
         updateCustomAppButton();
+
+        updateAdaptiveTextAndIconColors();
+    }
+
+    private void updateWhenTextView(View view) {
+        Context context = view.getContext();
+
+        // Set the date and repeats (if any)
+        String localTimezone = Utils.getTimeZone(mActivity, mTZUpdater);
+
+        String displayedDatetime = Utils.getDisplayedDatetime(mStartMillis, mEndMillis,
+                System.currentTimeMillis(), localTimezone, mAllDay, context);
+
+        String displayedTimezone = null;
+        if (!mAllDay) {
+            displayedTimezone = Utils.getDisplayedTimezone(mStartMillis, localTimezone,
+                    mEventCursor.getString(EVENT_INDEX_EVENT_TIMEZONE));
+        }
+        // Display the datetime.  Make the timezone (if any) transparent.
+        if (displayedTimezone == null) {
+            setTextCommon(view, R.id.when_datetime, displayedDatetime);
+        } else {
+            int timezoneIndex = displayedDatetime.length();
+            displayedDatetime += "  " + displayedTimezone;
+            SpannableStringBuilder sb = new SpannableStringBuilder(displayedDatetime);
+            ForegroundColorSpan transparentColorSpan = new ForegroundColorSpan(
+                    Utils.getAdaptiveTextColor(context,
+                            context.getResources().getColor(R.color.event_info_headline_transparent_color), mCurrentColor));
+            sb.setSpan(transparentColorSpan, timezoneIndex, displayedDatetime.length(),
+                    Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            setTextCommon(view, R.id.when_datetime, sb);
+        }
+    }
+
+    private void updateAdaptiveTextAndIconColors() {
+        if (Utils.getSharedPreference(mContext, GeneralPreferences.KEY_REAL_EVENT_COLORS, false)) {
+            // TextViews
+            int color = Utils.getAdaptiveTextColor(mContext,
+                    mContext.getResources().getColor(R.color.event_info_headline_color), mCurrentColor);
+
+            mWhenDateTime.setTextColor(color);
+            mTitle.setTextColor(color);
+            mWhere.setTextColor(color);
+            mWhenRepeat.setTextColor(color);
+            color = Utils.getAdaptiveTextColor(mContext,
+                    mContext.getResources().getColor(R.color.event_info_headline_link_color), mCurrentColor);
+            mWhere.setLinkTextColor(color);
+
+            // Icons on Tablet
+            if (mWindowStyle == DIALOG_WINDOW_STYLE) {
+                color = Utils.getAdaptiveTextColor(mContext, Color.WHITE, mCurrentColor);
+                ((ImageButton) mView.findViewById(R.id.edit)).setColorFilter(color);
+                ((ImageButton) mView.findViewById(R.id.delete)).setColorFilter(color);
+                ((ImageButton) mView.findViewById(R.id.change_color)).setColorFilter(color);
+            }
+        }
     }
 
     private void updateCustomAppButton() {
@@ -1925,7 +1966,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             // Insert any minute values that aren't represented in the minutes list.
             for (ReminderEntry re : reminders) {
                 EventViewUtils.addMinutesToList(
-                        mActivity, mReminderMinuteValues, mReminderMinuteLabels, re.getMinutes());
+                        mActivity, mReminderMinuteValues, mReminderMinuteLabels, Math.abs(re.getMinutes()));
             }
             // Create a UI element for each reminder.  We display all of the reminders we get
             // from the provider, even if the count exceeds the calendar maximum.  (Also, for
@@ -1982,6 +2023,11 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         TextView textView = (TextView) view.findViewById(id);
         if (textView == null)
             return;
+
+        final int textColor = Utils.getAdaptiveTextColor(mContext,
+                getResources().getColor(R.color.event_info_headline_color), mCurrentColor);
+        textView.setTextColor(textColor);
+        textView.setLinkTextColor(textColor);
         textView.setText(text);
     }
 
@@ -2143,7 +2189,8 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         // new event that aren't in the default set.
         Resources r = mActivity.getResources();
         mReminderMinuteValues = loadIntegerArray(r, R.array.reminder_minutes_values);
-        mReminderMinuteLabels = loadStringArray(r, R.array.reminder_minutes_labels);
+        mReminderMinuteLabels = EventViewUtils.constructReminderLabelsFromValues(mActivity,
+                mReminderMinuteValues, false);
         mReminderMethodValues = loadIntegerArray(r, R.array.reminder_methods_values);
         mReminderMethodLabels = loadStringArray(r, R.array.reminder_methods_labels);
 
@@ -2244,6 +2291,11 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         mCurrentColor = color;
         mCurrentColorKey = mDisplayColorKeyMap.get(color);
         mHeadlines.setBackgroundColor(color);
+
+        updateAdaptiveTextAndIconColors();
+
+        // Update the When text color which needs a rebuild of the string
+        updateWhenTextView(mView);
     }
 
     private class QueryHandler extends AsyncQueryService {
@@ -2270,14 +2322,14 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                         return;
                     }
                     if (!mCalendarColorInitialized) {
-                        mCalendarColor = Utils.getDisplayColorFromColor(
+                        mCalendarColor = Utils.getDisplayColorFromColor(activity,
                                 mEventCursor.getInt(EVENT_INDEX_CALENDAR_COLOR));
                         mCalendarColorInitialized = true;
                     }
 
                     if (!mOriginalColorInitialized) {
                         mOriginalColor = mEventCursor.isNull(EVENT_INDEX_EVENT_COLOR)
-                                ? mCalendarColor : Utils.getDisplayColorFromColor(
+                                ? mCalendarColor : Utils.getDisplayColorFromColor(activity,
                                 mEventCursor.getInt(EVENT_INDEX_EVENT_COLOR));
                         mOriginalColorInitialized = true;
                     }
@@ -2336,7 +2388,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                         do {
                             String colorKey = cursor.getString(COLORS_INDEX_COLOR_KEY);
                             int rawColor = cursor.getInt(COLORS_INDEX_COLOR);
-                            int displayColor = Utils.getDisplayColorFromColor(rawColor);
+                            int displayColor = Utils.getDisplayColorFromColor(activity, rawColor);
                             mDisplayColorKeyMap.put(displayColor, colorKey);
                             colors.add(displayColor);
                         } while (cursor.moveToNext());

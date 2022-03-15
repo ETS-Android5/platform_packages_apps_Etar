@@ -16,9 +16,12 @@
 
 package com.android.calendar;
 
+import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
+
 import android.Manifest;
 import android.accounts.Account;
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.app.SearchManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -39,28 +42,28 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.CalendarContract.Calendars;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.widget.SearchView;
-import androidx.core.content.ContextCompat;
-
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.text.style.URLSpan;
 import android.text.util.Linkify;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.widget.SearchView;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 
 import com.android.calendar.CalendarController.ViewType;
 import com.android.calendar.CalendarEventModel.ReminderEntry;
 import com.android.calendar.CalendarUtils.TimeZoneUtils;
 import com.android.calendar.settings.GeneralPreferences;
 import com.android.calendar.widget.CalendarAppWidgetProvider;
+import com.android.calendarcommon2.Time;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -80,8 +83,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import ws.xsoh.etar.R;
-
-import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
 
 public class Utils {
     // Set to 0 until we have UI to perform undo
@@ -105,13 +106,16 @@ public class Utils {
     public static final String INTENT_KEY_VIEW_TYPE = "VIEW";
     public static final String INTENT_VALUE_VIEW_TYPE_DAY = "DAY";
     public static final String INTENT_KEY_HOME = "KEY_HOME";
-    public static final int MONDAY_BEFORE_JULIAN_EPOCH = Time.EPOCH_JULIAN_DAY - 3;
+    public static final int EPOCH_JULIAN_DAY = 2440588;
+    public static final int MONDAY_BEFORE_JULIAN_EPOCH = EPOCH_JULIAN_DAY - 3;
     public static final int DECLINED_EVENT_ALPHA = 0x66;
     public static final int DECLINED_EVENT_TEXT_ALPHA = 0xC0;
     public static final int YEAR_MIN = 1970;
     public static final int YEAR_MAX = 2036;
     public static final String KEY_QUICK_RESPONSES = "preferences_quick_responses";
     public static final String APPWIDGET_DATA_TYPE = "vnd.android.data/update";
+    public static final int PI_FLAG_IMMUTABLE = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+
     // Defines used by the DNA generation code
     static final int DAY_IN_MINUTES = 60 * 24;
     static final int WEEK_IN_MINUTES = DAY_IN_MINUTES * 7;
@@ -127,6 +131,10 @@ public class Utils {
     private static final float INTENSITY_ADJUST = 0.8f;
     private static final TimeZoneUtils mTZUtils = new TimeZoneUtils(SHARED_PREFS_NAME);
     private static final Pattern mWildcardPattern = Pattern.compile("^.*$");
+
+    private static final float BRIGHTNESS_THRESHOLD = 130;
+    private static final float ADAPTIVE_DARK_TEXT_ALPHA_FACTOR = 0.7f;
+    private static final float ADAPTIVE_LIGHT_TEXT_ALPHA_FACTOR = 0.9f;
 
     /**
     * A coordinate must be of the following form for Google Maps to correctly use it:
@@ -201,6 +209,36 @@ public class Utils {
      */
     public static boolean isOreoOrLater() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
+    }
+
+    /**
+     * Returns whether the system supports Material You.
+     *
+     * As of Android 12.0, Material You is only available on some devices (Pixel, select Samsung
+     * devices). On other devices (e.g., AOSP-based ROMs), the system_* color resources will still
+     * exist but cannot be configured by the user.
+     */
+    public static boolean isMonetAvailable(Context context) {
+        if (Build.VERSION.SDK_INT < 31) {
+            return false;
+        }
+
+        // Wallpaper-based theming requires a color extraction engine and is enabled when the `flag_monet`
+        // config flag is enabled in SystemUI. It's unclear how to access this information from a
+        // normal application.
+        //
+        // To determine whether Material You is available on the device, we use a naive heuristic which
+        // is to compare the palette against known default values in AOSP.
+        Resources resources = context.getResources();
+        int probe1 = resources.getColor(android.R.color.system_accent1_500, context.getTheme());
+        int probe2 = resources.getColor(android.R.color.system_accent2_500, context.getTheme());
+        if (probe1 == Color.parseColor("#007fac") && probe2 == Color.parseColor("#657985")) {
+            // AOSP palette
+            Log.d(TAG, "Material You not available - Detected AOSP palette");
+            return false;
+        }
+
+        return true;
     }
 
     public static int getViewTypeFromIntentAndSharedPref(Activity activity) {
@@ -536,7 +574,7 @@ public class Utils {
     public static String formatMonthYear(Context context, Time time) {
         int flags = DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_NO_MONTH_DAY
                 | DateUtils.FORMAT_SHOW_YEAR;
-        long millis = time.toMillis(true);
+        long millis = time.toMillis();
         return formatDateRange(context, millis, millis, flags);
     }
 
@@ -580,7 +618,7 @@ public class Utils {
         if (diff < 0) {
             diff += 7;
         }
-        int refDay = Time.EPOCH_JULIAN_DAY - diff;
+        int refDay = EPOCH_JULIAN_DAY - diff;
         return (julianDay - refDay) / 7;
     }
 
@@ -588,7 +626,7 @@ public class Utils {
      * Takes a number of weeks since the epoch and calculates the Julian day of
      * the Monday for that week.
      *
-     * This assumes that the week containing the {@link Time#EPOCH_JULIAN_DAY}
+     * This assumes that the week containing the EPOCH_JULIAN_DAY
      * is considered week 0. It returns the Julian day for the Monday
      * {@code week} weeks after the Monday of the week containing the epoch.
      *
@@ -752,20 +790,20 @@ public class Utils {
         if (recycle == null) {
             recycle = new Time();
         }
-        recycle.timezone = Time.TIMEZONE_UTC;
+        recycle.setTimezone(Time.TIMEZONE_UTC);
         recycle.set(utcTime);
-        recycle.timezone = tz;
-        return recycle.normalize(true);
+        recycle.setTimezone(tz);
+        return recycle.normalize();
     }
 
     public static long convertAlldayLocalToUTC(Time recycle, long localTime, String tz) {
         if (recycle == null) {
             recycle = new Time();
         }
-        recycle.timezone = tz;
+        recycle.setTimezone(tz);
         recycle.set(localTime);
-        recycle.timezone = Time.TIMEZONE_UTC;
-        return recycle.normalize(true);
+        recycle.setTimezone(Time.TIMEZONE_UTC);
+        return recycle.normalize();
     }
 
     /**
@@ -779,13 +817,13 @@ public class Utils {
         if (recycle == null) {
             recycle = new Time();
         }
-        recycle.timezone = tz;
+        recycle.setTimezone(tz);
         recycle.set(theTime);
-        recycle.monthDay ++;
-        recycle.hour = 0;
-        recycle.minute = 0;
-        recycle.second = 0;
-        return recycle.normalize(true);
+        recycle.setDay(recycle.getDay() + 1);
+        recycle.setHour(0);
+        recycle.setMinute(0);
+        recycle.setSecond(0);
+        return recycle.normalize();
     }
 
     /**
@@ -840,12 +878,70 @@ public class Utils {
      *
      * @param color
      */
-    public static int getDisplayColorFromColor(int color) {
-        float[] hsv = new float[3];
-        Color.colorToHSV(color, hsv);
-        hsv[1] = Math.min(hsv[1] * SATURATION_ADJUST, 1.0f);
-        hsv[2] = hsv[2] * INTENSITY_ADJUST;
-        return Color.HSVToColor(hsv);
+    public static int getDisplayColorFromColor(Context context, int color) {
+        if (!Utils.getSharedPreference(context, GeneralPreferences.KEY_REAL_EVENT_COLORS, false)) {
+            float[] hsv = new float[3];
+            Color.colorToHSV(color, hsv);
+            hsv[1] = Math.min(hsv[1] * SATURATION_ADJUST, 1.0f);
+            hsv[2] = hsv[2] * INTENSITY_ADJUST;
+            return Color.HSVToColor(hsv);
+        }
+        return color;
+    }
+
+    /**
+     * Calculates the brightness between 0 (dark) and 255 (bright) from the given color
+     * Source: http://alienryderflex.com/hsp.html
+     *
+     * @param color
+     * @return
+     */
+    public static int getBrightnessFromColor(int color) {
+        return (int) Math.sqrt(
+            Color.red(color) * Color.red(color) * .299 +
+            Color.green(color) * Color.green(color) * .587 +
+            Color.blue(color) * Color.blue(color) * .114
+        );
+    }
+
+    /**
+     * If "real event colors" is enabled it returns an alpha value to dim the event texts slightly.
+     * Alphas are not the same for dark and light colors
+     *
+     * @param context
+     * @param alpha
+     * @param color
+     * @return
+     */
+    public static int getAdaptiveTextAlpha(Context context, int alpha, int color) {
+        if (Utils.getSharedPreference(context, GeneralPreferences.KEY_REAL_EVENT_COLORS, false)) {
+            return (int) (Utils.getBrightnessFromColor(color) > BRIGHTNESS_THRESHOLD?
+                alpha * ADAPTIVE_DARK_TEXT_ALPHA_FACTOR : alpha * ADAPTIVE_LIGHT_TEXT_ALPHA_FACTOR);
+        }
+        return alpha;
+    }
+
+    /**
+     * If real event colors is enabled, this returns a dark or light text color depending on
+     * the event background color
+     *
+     * @param context
+     * @param color
+     * @param eventColor
+     * @return
+     */
+    public static int getAdaptiveTextColor(Context context, int color, int eventColor) {
+        if (Utils.getSharedPreference(context, GeneralPreferences.KEY_REAL_EVENT_COLORS, false)) {
+            if (Utils.getBrightnessFromColor(eventColor) > BRIGHTNESS_THRESHOLD) {
+                color = ColorUtils.setAlphaComponent(Color.BLACK,
+                    (int) Math.round(Color.alpha(color) * ADAPTIVE_DARK_TEXT_ALPHA_FACTOR));
+            }
+            else {
+                color = ColorUtils.setAlphaComponent(Color.WHITE,
+                    (int) Math.round(Color.alpha(color) * ADAPTIVE_LIGHT_TEXT_ALPHA_FACTOR));
+            }
+        }
+        return color;
     }
 
     // This takes a color and computes what it would look like blended with
@@ -1316,18 +1412,18 @@ public class Utils {
     public static int getWeekNumberFromTime(long millisSinceEpoch, Context context) {
         Time weekTime = new Time(getTimeZone(context, null));
         weekTime.set(millisSinceEpoch);
-        weekTime.normalize(true);
+        weekTime.normalize();
         int firstDayOfWeek = getFirstDayOfWeek(context);
         // if the date is on Saturday or Sunday and the start of the week
         // isn't Monday we may need to shift the date to be in the correct
         // week
-        if (weekTime.weekDay == Time.SUNDAY
+        if (weekTime.getWeekDay() == Time.SUNDAY
                 && (firstDayOfWeek == Time.SUNDAY || firstDayOfWeek == Time.SATURDAY)) {
-            weekTime.monthDay++;
-            weekTime.normalize(true);
-        } else if (weekTime.weekDay == Time.SATURDAY && firstDayOfWeek == Time.SATURDAY) {
-            weekTime.monthDay += 2;
-            weekTime.normalize(true);
+            weekTime.setDay(weekTime.getDay() + 1);
+            weekTime.normalize();
+        } else if (weekTime.getWeekDay() == Time.SATURDAY && firstDayOfWeek == Time.SATURDAY) {
+            weekTime.setDay(weekTime.getDay() + 2);
+            weekTime.normalize();
         }
         return weekTime.getWeekNumber();
     }
@@ -1373,8 +1469,8 @@ public class Utils {
         long now = System.currentTimeMillis();
         Time time = new Time(timezone);
         time.set(now);
-        long runInMillis = (24 * 3600 - time.hour * 3600 - time.minute * 60 -
-                time.second + 1) * 1000;
+        long runInMillis = (24 * 3600 - time.getHour() * 3600 - time.getMinute() * 60 -
+                time.getSecond() + 1) * 1000;
         h.removeCallbacks(r);
         h.postDelayed(r, runInMillis);
     }
@@ -1407,10 +1503,10 @@ public class Utils {
             // All day events require special timezone adjustment.
             long localStartMillis = convertAlldayUtcToLocal(null, startMillis, localTimezone);
             long localEndMillis = convertAlldayUtcToLocal(null, endMillis, localTimezone);
-            if (singleDayEvent(localStartMillis, localEndMillis, currentTime.gmtoff)) {
+            if (singleDayEvent(localStartMillis, localEndMillis, currentTime.getGmtOffset())) {
                 // If possible, use "Today" or "Tomorrow" instead of a full date string.
                 int todayOrTomorrow = isTodayOrTomorrow(context.getResources(),
-                        localStartMillis, currentMillis, currentTime.gmtoff);
+                        localStartMillis, currentMillis, currentTime.getGmtOffset());
                 if (TODAY == todayOrTomorrow) {
                     datetimeString = resources.getString(R.string.today);
                 } else if (TOMORROW == todayOrTomorrow) {
@@ -1425,14 +1521,14 @@ public class Utils {
                         endMillis, flagsDate, Time.TIMEZONE_UTC).toString();
             }
         } else {
-            if (singleDayEvent(startMillis, endMillis, currentTime.gmtoff)) {
+            if (singleDayEvent(startMillis, endMillis, currentTime.getGmtOffset())) {
                 // Format the time.
                 String timeString = Utils.formatDateRange(context, startMillis, endMillis,
                         flagsTime);
 
                 // If possible, use "Today" or "Tomorrow" instead of a full date string.
                 int todayOrTomorrow = isTodayOrTomorrow(context.getResources(), startMillis,
-                        currentMillis, currentTime.gmtoff);
+                        currentMillis, currentTime.getGmtOffset());
                 if (TODAY == todayOrTomorrow) {
                     // Example: "Today at 1:00pm - 2:00 pm"
                     datetimeString = resources.getString(R.string.today_at_time_fmt,
@@ -1475,10 +1571,14 @@ public class Utils {
             } else {
                 Time startTime = new Time(localTimezone);
                 startTime.set(startMillis);
-                tzDisplay = tz.getDisplayName(startTime.isDst != 0, TimeZone.SHORT);
+                tzDisplay = tz.getDisplayName(false, TimeZone.SHORT);
             }
         }
         return tzDisplay;
+    }
+
+    public static String getCurrentTimezone() {
+        return TimeZone.getDefault().getID();
     }
 
     /**
@@ -1640,9 +1740,9 @@ public class Utils {
         }
         // Set the day and update the icon
         Time now =  new Time(timezone);
-        now.setToNow();
-        now.normalize(false);
-        today.setDayOfMonth(now.monthDay);
+        now.set(System.currentTimeMillis());
+        now.normalize();
+        today.setDayOfMonth(now.getDay());
         icon.mutate();
         icon.setDrawableByLayerId(R.id.today_icon_day, today);
     }

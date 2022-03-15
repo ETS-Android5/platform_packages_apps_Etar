@@ -17,7 +17,6 @@
 package com.android.calendar.event;
 
 import android.Manifest;
-import androidx.appcompat.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Fragment;
@@ -43,11 +42,7 @@ import android.provider.CalendarContract.Calendars;
 import android.provider.CalendarContract.Colors;
 import android.provider.CalendarContract.Events;
 import android.provider.CalendarContract.Reminders;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.appcompat.app.AppCompatActivity;
 import android.text.TextUtils;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -60,6 +55,11 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import com.android.calendar.AsyncQueryService;
 import com.android.calendar.CalendarController;
 import com.android.calendar.CalendarController.EventHandler;
@@ -70,6 +70,7 @@ import com.android.calendar.CalendarEventModel.Attendee;
 import com.android.calendar.CalendarEventModel.ReminderEntry;
 import com.android.calendar.DeleteEventHelper;
 import com.android.calendar.Utils;
+import com.android.calendarcommon2.Time;
 import com.android.colorpicker.ColorPickerSwatch.OnColorSelectedListener;
 import com.android.colorpicker.HsvColorComparator;
 
@@ -227,10 +228,10 @@ public class EditEventFragment extends Fragment implements EventHandler, OnColor
                 mModel.mAllDay = mEvent.extraLong == CalendarController.EXTRA_CREATE_ALL_DAY;
             }
             if (mEvent.startTime != null) {
-                mBegin = mEvent.startTime.toMillis(true);
+                mBegin = mEvent.startTime.toMillis();
             }
             if (mEvent.endTime != null) {
-                mEnd = mEvent.endTime.toMillis(true);
+                mEnd = mEvent.endTime.toMillis();
             }
             if (mEvent.calendarId != -1) {
                 mCalendarId = mEvent.calendarId;
@@ -595,10 +596,10 @@ public class EditEventFragment extends Fragment implements EventHandler, OnColor
             mEventBundle = new EventBundle();
             mEventBundle.id = mEvent.id;
             if (mEvent.startTime != null) {
-                mEventBundle.start = mEvent.startTime.toMillis(true);
+                mEventBundle.start = mEvent.startTime.toMillis();
             }
             if (mEvent.endTime != null) {
-                mEventBundle.end = mEvent.startTime.toMillis(true);
+                mEventBundle.end = mEvent.startTime.toMillis();
             }
         }
         outState.putBoolean(BUNDLE_KEY_EDIT_ON_LAUNCH, mShowModifyDialogOnLaunch);
@@ -675,8 +676,8 @@ public class EditEventFragment extends Fragment implements EventHandler, OnColor
                         return;
                     }
                     mOriginalModel = new CalendarEventModel();
-                    EditEventHelper.setModelFromCursor(mOriginalModel, cursor);
-                    EditEventHelper.setModelFromCursor(mModel, cursor);
+                    EditEventHelper.setModelFromCursor(mOriginalModel, cursor, activity);
+                    EditEventHelper.setModelFromCursor(mModel, cursor, activity);
                     cursor.close();
 
                     mOriginalModel.mUri = mUri.toString();
@@ -828,8 +829,8 @@ public class EditEventFragment extends Fragment implements EventHandler, OnColor
                                     mCalendarId);
                         } else {
                             // Populate model for an existing event
-                            EditEventHelper.setModelFromCalendarCursor(mModel, cursor);
-                            EditEventHelper.setModelFromCalendarCursor(mOriginalModel, cursor);
+                            EditEventHelper.setModelFromCalendarCursor(mModel, cursor, activity);
+                            EditEventHelper.setModelFromCalendarCursor(mOriginalModel, cursor, activity);
                         }
                     } finally {
                         cursor.close();
@@ -842,7 +843,7 @@ public class EditEventFragment extends Fragment implements EventHandler, OnColor
                         do {
                             String colorKey = cursor.getString(EditEventHelper.COLORS_INDEX_COLOR_KEY);
                             int rawColor = cursor.getInt(EditEventHelper.COLORS_INDEX_COLOR);
-                            int displayColor = Utils.getDisplayColorFromColor(rawColor);
+                            int displayColor = Utils.getDisplayColorFromColor(activity, rawColor);
                             String accountName = cursor
                                     .getString(EditEventHelper.COLORS_INDEX_ACCOUNT_NAME);
                             String accountType = cursor
@@ -957,13 +958,13 @@ public class EditEventFragment extends Fragment implements EventHandler, OnColor
                             String tz = Utils.getTimeZone(mActivity, null);
                             Time t = new Time(Time.TIMEZONE_UTC);
                             t.set(start);
-                            t.timezone = tz;
-                            start = t.toMillis(true);
+                            t.setTimezone(tz);
+                            start = t.toMillis();
 
-                            t.timezone = Time.TIMEZONE_UTC;
+                            t.setTimezone(Time.TIMEZONE_UTC);
                             t.set(end);
-                            t.timezone = tz;
-                            end = t.toMillis(true);
+                            t.setTimezone(tz);
+                            end = t.toMillis();
                         }
                         CalendarController.getInstance(mActivity).launchViewEvent(-1, start, end,
                                 Attendees.ATTENDEE_STATUS_NONE);

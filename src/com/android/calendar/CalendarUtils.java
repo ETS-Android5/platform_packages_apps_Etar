@@ -16,23 +16,19 @@
 
 package com.android.calendar;
 
-import android.Manifest;
 import android.content.AsyncQueryHandler;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.os.Build;
 import android.os.Looper;
 import android.provider.CalendarContract.CalendarCache;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.util.Log;
 
-import androidx.core.content.ContextCompat;
+import com.android.calendarcommon2.Time;
 
 import java.util.Formatter;
 import java.util.HashSet;
@@ -110,7 +106,7 @@ public class CalendarUtils {
         private volatile static boolean mFirstTZRequest = true;
         private volatile static boolean mTZQueryInProgress = false;
         private volatile static boolean mUseHomeTZ = false;
-        private volatile static String mHomeTZ = Time.getCurrentTimezone();
+        private volatile static String mHomeTZ = Utils.getCurrentTimezone();
         private static HashSet<Runnable> mTZCallbacks = new HashSet<Runnable>();
         private static int mToken = 1;
         private static AsyncTZHandler mHandler;
@@ -250,7 +246,7 @@ public class CalendarUtils {
                 if (mFirstTZRequest) {
                     SharedPreferences prefs = getSharedPreferences(context, mPrefsName);
                     mUseHomeTZ = prefs.getBoolean(KEY_HOME_TZ_ENABLED, false);
-                    mHomeTZ = prefs.getString(KEY_HOME_TZ, Time.getCurrentTimezone());
+                    mHomeTZ = prefs.getString(KEY_HOME_TZ, Utils.getCurrentTimezone());
 
                     // Only check content resolver if we have a looper to attach to use
                     if (Looper.myLooper() != null) {
@@ -274,7 +270,7 @@ public class CalendarUtils {
                     mTZCallbacks.add(callback);
                 }
             }
-            return mUseHomeTZ ? mHomeTZ : Time.getCurrentTimezone();
+            return mUseHomeTZ ? mHomeTZ : Utils.getCurrentTimezone();
         }
 
         /**

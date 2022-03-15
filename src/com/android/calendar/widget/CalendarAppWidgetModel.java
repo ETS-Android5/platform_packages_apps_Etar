@@ -21,11 +21,11 @@ import android.database.Cursor;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.View;
 
 import com.android.calendar.Utils;
+import com.android.calendarcommon2.Time;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -50,8 +50,8 @@ class CalendarAppWidgetModel {
     public CalendarAppWidgetModel(Context context, String timeZone) {
         mNow = System.currentTimeMillis();
         Time time = new Time(timeZone);
-        time.setToNow(); // This is needed for gmtoff to be set
-        mTodayJulianDay = Time.getJulianDay(mNow, time.gmtoff);
+        time.set(System.currentTimeMillis()); // This is needed for gmtoff to be set
+        mTodayJulianDay = Time.getJulianDay(mNow, time.getGmtOffset());
         mMaxJulianDay = mTodayJulianDay + CalendarAppWidgetService.MAX_DAYS - 1;
         mEventInfos = new ArrayList<EventInfo>(50);
         mRowInfos = new ArrayList<RowInfo>(50);
@@ -66,11 +66,10 @@ class CalendarAppWidgetModel {
         for (int i = 0; i < CalendarAppWidgetService.MAX_DAYS; i++) {
             mBuckets.add(new LinkedList<RowInfo>());
         }
-        recycle.setToNow();
-        mShowTZ = !TextUtils.equals(timeZone, Time.getCurrentTimezone());
+        recycle.set(System.currentTimeMillis());
+        mShowTZ = !TextUtils.equals(timeZone, Utils.getCurrentTimezone());
         if (mShowTZ) {
-            mHomeTZName = TimeZone.getTimeZone(timeZone).getDisplayName(recycle.isDst != 0,
-                    TimeZone.SHORT);
+            mHomeTZName = TimeZone.getTimeZone(timeZone).getDisplayName(false, TimeZone.SHORT);
         }
 
         cursor.moveToPosition(-1);

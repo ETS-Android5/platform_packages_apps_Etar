@@ -15,6 +15,9 @@
  */
 package com.android.calendar;
 
+import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
+import static android.provider.CalendarContract.EXTRA_EVENT_END_TIME;
+
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.app.SearchManager;
@@ -29,7 +32,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.CalendarContract.Events;
 import android.provider.SearchRecentSuggestions;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -44,11 +46,9 @@ import com.android.calendar.CalendarController.EventInfo;
 import com.android.calendar.CalendarController.EventType;
 import com.android.calendar.CalendarController.ViewType;
 import com.android.calendar.agenda.AgendaFragment;
+import com.android.calendarcommon2.Time;
 
 import ws.xsoh.etar.R;
-
-import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
-import static android.provider.CalendarContract.EXTRA_EVENT_END_TIME;
 
 public class SearchActivity extends AppCompatActivity implements CalendarController.EventHandler,
         SearchView.OnQueryTextListener, MenuItemCompat.OnActionExpandListener {
@@ -184,7 +184,7 @@ public class SearchActivity extends AppCompatActivity implements CalendarControl
             FragmentTransaction ft = fragmentManager.beginTransaction();
 
             mEventInfoFragment = new EventInfoFragment(this, event.id,
-                    event.startTime.toMillis(false), event.endTime.toMillis(false),
+                    event.startTime.toMillis(), event.endTime.toMillis(),
                     event.getResponse(), false, EventInfoFragment.DIALOG_WINDOW_STYLE,
                     null /* No reminders to explicitly pass in. */);
             ft.replace(R.id.agenda_event_info, mEventInfoFragment);
@@ -195,9 +195,9 @@ public class SearchActivity extends AppCompatActivity implements CalendarControl
             intent.setData(eventUri);
             intent.setClass(this, EventInfoActivity.class);
             intent.putExtra(EXTRA_EVENT_BEGIN_TIME,
-                    event.startTime != null ? event.startTime.toMillis(true) : -1);
+                    event.startTime != null ? event.startTime.toMillis() : -1);
             intent.putExtra(
-                    EXTRA_EVENT_END_TIME, event.endTime != null ? event.endTime.toMillis(true) : -1);
+                    EXTRA_EVENT_END_TIME, event.endTime != null ? event.endTime.toMillis() : -1);
             startActivity(intent);
         }
         mCurrentEventId = event.id;
@@ -269,7 +269,7 @@ public class SearchActivity extends AppCompatActivity implements CalendarControl
         final int itemId = item.getItemId();
         if (itemId == R.id.action_today) {
             t = new Time();
-            t.setToNow();
+            t.set(System.currentTimeMillis());
             mController.sendEvent(this, EventType.GO_TO, t, null, -1, ViewType.CURRENT);
             return true;
         } else if (itemId == R.id.action_search) {
@@ -349,11 +349,11 @@ public class SearchActivity extends AppCompatActivity implements CalendarControl
 
     @Override
     public void handleEvent(EventInfo event) {
-        long endTime = (event.endTime == null) ? -1 : event.endTime.toMillis(false);
+        long endTime = (event.endTime == null) ? -1 : event.endTime.toMillis();
         if (event.eventType == EventType.VIEW_EVENT) {
             showEventInfo(event);
         } else if (event.eventType == EventType.DELETE_EVENT) {
-            deleteEvent(event.id, event.startTime.toMillis(false), endTime);
+            deleteEvent(event.id, event.startTime.toMillis(), endTime);
         }
     }
 

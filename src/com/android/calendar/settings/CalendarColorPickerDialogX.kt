@@ -24,7 +24,8 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.os.Bundle
-import android.provider.CalendarContract.*
+import android.provider.CalendarContract.Calendars
+import android.provider.CalendarContract.Colors
 import android.util.SparseIntArray
 import androidx.appcompat.app.AlertDialog
 import com.android.calendar.AsyncQueryService
@@ -32,7 +33,8 @@ import com.android.calendar.Utils
 import com.android.colorpicker.ColorPickerSwatch.OnColorSelectedListener
 import com.android.colorpicker.HsvColorComparator
 import ws.xsoh.etar.R
-import java.util.*
+import java.util.ArrayList
+import java.util.Arrays
 
 
 /**
@@ -154,7 +156,7 @@ class CalendarColorPickerDialogX : ColorPickerDialogX() {
                         dismiss()
                         return
                     }
-                    mSelectedColor = Utils.getDisplayColorFromColor(cursor.getInt(CALENDARS_INDEX_CALENDAR_COLOR))
+                    mSelectedColor = Utils.getDisplayColorFromColor(activity, cursor.getInt(CALENDARS_INDEX_CALENDAR_COLOR))
                     val account = Account(cursor.getString(CALENDARS_INDEX_ACCOUNT_NAME),
                             cursor.getString(CALENDARS_INDEX_ACCOUNT_TYPE))
                     cursor.close()
@@ -182,7 +184,7 @@ class CalendarColorPickerDialogX : ColorPickerDialogX() {
         do {
             val colorKey = cursor.getInt(COLORS_INDEX_COLOR_KEY)
             val rawColor = cursor.getInt(COLORS_INDEX_COLOR)
-            val displayColor = Utils.getDisplayColorFromColor(rawColor)
+            val displayColor = Utils.getDisplayColorFromColor(activity, rawColor)
             colorKeyMap.put(displayColor, colorKey)
             colors.add(displayColor)
         } while (cursor.moveToNext())

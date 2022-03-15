@@ -29,11 +29,11 @@ import android.provider.CalendarContract.CalendarAlerts;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.util.Log;
 
 import com.android.calendar.EventInfoActivity;
 import com.android.calendar.Utils;
+import com.android.calendarcommon2.Time;
 
 import java.util.Locale;
 import java.util.Map;
@@ -132,7 +132,7 @@ public class AlertUtils {
 
         intent.putExtra(CalendarContract.CalendarAlerts.ALARM_TIME, alarmTime);
         PendingIntent pi = PendingIntent.getBroadcast(context, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | Utils.PI_FLAG_IMMUTABLE);
         manager.set(alarmType, alarmTime, pi);
     }
 
@@ -148,10 +148,10 @@ public class AlertUtils {
             String location) {
         String tz = Utils.getTimeZone(context, null);
         Time time = new Time(tz);
-        time.setToNow();
-        int today = Time.getJulianDay(time.toMillis(false), time.gmtoff);
+        time.set(System.currentTimeMillis());
+        int today = Time.getJulianDay(time.toMillis(), time.getGmtOffset());
         time.set(startMillis);
-        int eventDay = Time.getJulianDay(time.toMillis(false), allDay ? 0 : time.gmtoff);
+        int eventDay = Time.getJulianDay(time.toMillis(), allDay ? 0 : time.getGmtOffset());
 
         int flags = DateUtils.FORMAT_ABBREV_ALL;
         if (!allDay) {
@@ -170,12 +170,11 @@ public class AlertUtils {
         StringBuilder sb = new StringBuilder(Utils.formatDateRange(context, startMillis,
                 startMillis, flags));
 
-        if (!allDay && tz != Time.getCurrentTimezone()) {
+        if (!allDay && tz != Utils.getCurrentTimezone()) {
             // Assumes time was set to the current tz
             time.set(startMillis);
-            boolean isDST = time.isDst != 0;
             sb.append(" ").append(TimeZone.getTimeZone(tz).getDisplayName(
-                    isDST, TimeZone.SHORT, Locale.getDefault()));
+                    false, TimeZone.SHORT, Locale.getDefault()));
         }
 
         if (eventDay == today + 1) {
@@ -313,8 +312,8 @@ public class AlertUtils {
 
     private static int getIntervalInDays(long startMillis, long endMillis, Time timeObj) {
         timeObj.set(startMillis);
-        int startDay = Time.getJulianDay(startMillis, timeObj.gmtoff);
+        int startDay = Time.getJulianDay(startMillis, timeObj.getGmtOffset());
         timeObj.set(endMillis);
-        return Time.getJulianDay(endMillis, timeObj.gmtoff) - startDay;
+        return Time.getJulianDay(endMillis, timeObj.getGmtOffset()) - startDay;
     }
 }

@@ -37,14 +37,24 @@ import android.text.TextUtils
 import android.util.SparseIntArray
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import androidx.preference.*
-import com.android.calendar.*
+import androidx.preference.CheckBoxPreference
+import androidx.preference.ListPreference
+import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
+import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.PreferenceManager
+import androidx.preference.SwitchPreference
+import com.android.calendar.CalendarController
+import com.android.calendar.CalendarRecentSuggestionsProvider
+import com.android.calendar.CalendarUtils
+import com.android.calendar.DynamicTheme
+import com.android.calendar.Utils
 import com.android.calendar.alerts.AlertReceiver
 import com.android.calendar.event.EventViewUtils
 import com.android.timezonepicker.TimeZoneInfo
 import com.android.timezonepicker.TimeZonePickerUtils
 import ws.xsoh.etar.R
-import java.util.*
+import java.util.TimeZone
 
 class GeneralPreferences : PreferenceFragmentCompat(),
         OnSharedPreferenceChangeListener, Preference.OnPreferenceChangeListener,
@@ -52,6 +62,7 @@ class GeneralPreferences : PreferenceFragmentCompat(),
 
     private lateinit var themePref: ListPreference
     private lateinit var colorPref: Preference
+    private lateinit var realEventColors: SwitchPreference
     private lateinit var pureBlackNightModePref: SwitchPreference
     private lateinit var defaultStartPref: ListPreference
     private lateinit var hideDeclinedPref: SwitchPreference
@@ -95,6 +106,7 @@ class GeneralPreferences : PreferenceFragmentCompat(),
 
         themePref = preferenceScreen.findPreference(KEY_THEME_PREF)!!
         colorPref = preferenceScreen.findPreference(KEY_COLOR_PREF)!!
+        realEventColors = preferenceScreen.findPreference(KEY_REAL_EVENT_COLORS)!!
         pureBlackNightModePref = preferenceScreen.findPreference(KEY_PURE_BLACK_NIGHT_MODE)!!
         defaultStartPref = preferenceScreen.findPreference(KEY_DEFAULT_START)!!
         hideDeclinedPref = preferenceScreen.findPreference(KEY_HIDE_DECLINED)!!
@@ -135,7 +147,13 @@ class GeneralPreferences : PreferenceFragmentCompat(),
             ringtonePref.summary = ringtoneDisplayString ?: ""
         }
 
+        if (Utils.isMonetAvailable(requireContext())) {
+            // Palette is controlled by user wallpaper
+            preferenceScreen.removePreferenceRecursively(KEY_COLOR_PREF)
+        }
+
         buildSnoozeDelayEntries()
+        buildDefaultReminderPrefEntries()
         defaultEventDurationPref.summary = defaultEventDurationPref.entry
         themePref.summary = themePref.entry
         weekStartPref.summary = weekStartPref.entry
@@ -143,6 +161,7 @@ class GeneralPreferences : PreferenceFragmentCompat(),
         defaultReminderPref.summary = defaultReminderPref.entry
         snoozeDelayPref.summary = snoozeDelayPref.entry
         defaultStartPref.summary = defaultStartPref.entry
+        skipRemindersPref.summary = skipRemindersPref.entry
 
         // This triggers an asynchronous call to the provider to refresh the data in shared pref
         timeZoneId = Utils.getTimeZone(activity, null)
@@ -164,31 +183,7 @@ class GeneralPreferences : PreferenceFragmentCompat(),
                 .findFragmentByTag(FRAG_TAG_TIME_ZONE_PICKER) as TimeZonePickerDialogX?
         tzpd?.setOnTimeZoneSetListener(this)
 
-        updateSkipRemindersSummary(skipRemindersPref.value)
-
         initializeColorMap()
-    }
-
-    /**
-     * Update the summary for the SkipReminders preference.
-     * @param value The corresponding value of which summary to set. If null, the default summary
-     * will be set, and the value will be set accordingly too.
-     */
-    private fun updateSkipRemindersSummary(value: String?) {
-        // Default to "declined". Must match with R.array.preferences_skip_reminders_values.
-        var index = 0
-        val values = skipRemindersPref.entryValues
-        val entries = skipRemindersPref.entries
-        for (value_i in values.indices) {
-            if (values[value_i] == value) {
-                index = value_i
-                break
-            }
-        }
-        skipRemindersPref.summary = entries[index].toString()
-        if (value == null) { // Value was not known ahead of time, so the default value will be set.
-            skipRemindersPref.value = values[index].toString()
-        }
     }
 
     private fun showColorPickerDialog() {
@@ -297,6 +292,9 @@ class GeneralPreferences : PreferenceFragmentCompat(),
                     a.recreate()
                 }
             }
+            KEY_REAL_EVENT_COLORS -> {
+                Utils.sendUpdateWidgetIntent(a)
+            }
         }
     }
 
@@ -360,7 +358,8 @@ class GeneralPreferences : PreferenceFragmentCompat(),
                 return true
             }
             skipRemindersPref -> {
-                updateSkipRemindersSummary(newValue as String)
+                skipRemindersPref.value = newValue as String
+                skipRemindersPref.summary = skipRemindersPref.entry
             }
             else -> {
                 return true
@@ -389,6 +388,19 @@ class GeneralPreferences : PreferenceFragmentCompat(),
         }
 
         snoozeDelayPref.entries = entries
+    }
+
+    private fun buildDefaultReminderPrefEntries() {
+        val values = defaultReminderPref.entryValues
+        val count = values.size
+        val entries = arrayOfNulls<CharSequence>(count)
+
+        for (i in 0 until count) {
+            val value = Integer.parseInt(values[i].toString())
+            entries[i] = EventViewUtils.constructReminderLabel(requireActivity(), value, false)
+        }
+
+        defaultReminderPref.entries = entries
     }
 
     override fun onPreferenceTreeClick(preference: Preference?): Boolean {
@@ -499,6 +511,7 @@ class GeneralPreferences : PreferenceFragmentCompat(),
         // Preference keys
         const val KEY_THEME_PREF = "pref_theme"
         const val KEY_COLOR_PREF = "pref_color"
+        const val KEY_REAL_EVENT_COLORS = "pref_real_event_colors"
         const val KEY_PURE_BLACK_NIGHT_MODE = "pref_pure_black_night_mode"
         const val KEY_DEFAULT_START = "preferences_default_start"
         const val KEY_HIDE_DECLINED = "preferences_hide_declined"

@@ -41,7 +41,6 @@ import android.text.InputFilter;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.text.util.Rfc822Tokenizer;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -83,6 +82,7 @@ import com.android.calendar.event.EditEventHelper.EditDoneRunnable;
 import com.android.calendar.recurrencepicker.RecurrencePickerDialog;
 import com.android.calendar.settings.GeneralPreferences;
 import com.android.calendarcommon2.EventRecurrence;
+import com.android.calendarcommon2.Time;
 import com.android.common.Rfc822InputFilter;
 import com.android.common.Rfc822Validator;
 import com.android.ex.chips.AccountSpecifier;
@@ -92,6 +92,7 @@ import com.android.ex.chips.RecipientEditTextView;
 import com.android.timezonepicker.TimeZoneInfo;
 import com.android.timezonepicker.TimeZonePickerDialog;
 import com.android.timezonepicker.TimeZonePickerUtils;
+
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
@@ -390,8 +391,8 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
 
     // Fills in the date and time fields
     private void populateWhen() {
-        long startMillis = mStartTime.toMillis(false /* use isDst */);
-        long endMillis = mEndTime.toMillis(false /* use isDst */);
+        long startMillis = mStartTime.toMillis();
+        long endMillis = mEndTime.toMillis();
         setDate(mStartDateButton, startMillis);
         setDate(mEndDateButton, endMillis);
 
@@ -414,10 +415,10 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
 
     private void setTimezone(String timeZone) {
         mTimezone = timeZone;
-        mStartTime.timezone = mTimezone;
-        long timeMillis = mStartTime.normalize(true);
-        mEndTime.timezone = mTimezone;
-        mEndTime.normalize(true);
+        mStartTime.setTimezone(mTimezone);
+        long timeMillis = mStartTime.normalize();
+        mEndTime.setTimezone(mTimezone);
+        mEndTime.normalize();
 
         populateTimezone(timeMillis);
     }
@@ -435,7 +436,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
 
     private void showTimezoneDialog() {
         Bundle b = new Bundle();
-        b.putLong(TimeZonePickerDialog.BUNDLE_START_TIME_MILLIS, mStartTime.toMillis(false));
+        b.putLong(TimeZonePickerDialog.BUNDLE_START_TIME_MILLIS, mStartTime.toMillis());
         b.putString(TimeZonePickerDialog.BUNDLE_TIME_ZONE, mTimezone);
 
         FragmentManager fm = mActivity.getFragmentManager();
@@ -526,8 +527,8 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         if (view == mRruleButton) {
             Bundle b = new Bundle();
             b.putLong(RecurrencePickerDialog.BUNDLE_START_TIME_MILLIS,
-                    mStartTime.toMillis(false));
-            b.putString(RecurrencePickerDialog.BUNDLE_TIME_ZONE, mStartTime.timezone);
+                    mStartTime.toMillis());
+            b.putString(RecurrencePickerDialog.BUNDLE_TIME_ZONE, mStartTime.getTimezone());
 
             // TODO may be more efficient to serialize and pass in EventRecurrence
             b.putString(RecurrencePickerDialog.BUNDLE_RRULE, mRrule);
@@ -651,20 +652,20 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             // Reset start and end time, increment the monthDay by 1, and set
             // the timezone to UTC, as required for all-day events.
             mTimezone = Time.TIMEZONE_UTC;
-            mStartTime.hour = 0;
-            mStartTime.minute = 0;
-            mStartTime.second = 0;
-            mStartTime.timezone = mTimezone;
-            mModel.mStart = mStartTime.normalize(true);
+            mStartTime.setHour(0);
+            mStartTime.setMinute(0);
+            mStartTime.setSecond(0);
+            mStartTime.setTimezone(mTimezone);
+            mModel.mStart = mStartTime.normalize();
 
-            mEndTime.hour = 0;
-            mEndTime.minute = 0;
-            mEndTime.second = 0;
-            mEndTime.timezone = mTimezone;
+            mEndTime.setHour(0);
+            mEndTime.setMinute(0);
+            mEndTime.setSecond(0);
+            mEndTime.setTimezone(mTimezone);
             // When a user see the event duration as "X - Y" (e.g. Oct. 28 - Oct. 29), end time
             // should be Y + 1 (Oct.30).
             final long normalizedEndTimeMillis =
-                    mEndTime.normalize(true) + DateUtils.DAY_IN_MILLIS;
+                    mEndTime.normalize() + DateUtils.DAY_IN_MILLIS;
             if (normalizedEndTimeMillis < mModel.mStart) {
                 // mEnd should be midnight of the next day of mStart.
                 mModel.mEnd = mModel.mStart + DateUtils.DAY_IN_MILLIS;
@@ -672,10 +673,10 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                 mModel.mEnd = normalizedEndTimeMillis;
             }
         } else {
-            mStartTime.timezone = mTimezone;
-            mEndTime.timezone = mTimezone;
-            mModel.mStart = mStartTime.toMillis(true);
-            mModel.mEnd = mEndTime.toMillis(true);
+            mStartTime.setTimezone(mTimezone);
+            mEndTime.setTimezone(mTimezone);
+            mModel.mStart = mStartTime.toMillis();
+            mModel.mEnd = mEndTime.toMillis();
         }
         mModel.mTimezone = mTimezone;
         mModel.mAccessLevel = mAccessLevelSpinner.getSelectedItemPosition();
@@ -741,7 +742,8 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         // is mostly relevant for "methods", since we shouldn't have any "minutes" values in a
         // new event that aren't in the default set.
         mReminderMinuteValues = loadIntegerArray(r, R.array.reminder_minutes_values);
-        mReminderMinuteLabels = loadStringArray(r, R.array.reminder_minutes_labels);
+        mReminderMinuteLabels = EventViewUtils.constructReminderLabelsFromValues(mActivity,
+                mReminderMinuteValues, false);
         mReminderMethodValues = loadIntegerArray(r, R.array.reminder_methods_values);
         mReminderMethodLabels = loadStringArray(r, R.array.reminder_methods_labels);
 
@@ -817,14 +819,14 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
 
         // Set up the starting times
         if (begin > 0) {
-            mStartTime.timezone = mTimezone;
+            mStartTime.setTimezone(mTimezone);
             mStartTime.set(begin);
-            mStartTime.normalize(true);
+            mStartTime.normalize();
         }
         if (end > 0) {
-            mEndTime.timezone = mTimezone;
+            mEndTime.setTimezone(mTimezone);
             mEndTime.set(end);
-            mEndTime.normalize(true);
+            mEndTime.normalize();
         }
 
         mRrule = model.mRrule;
@@ -855,9 +857,9 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             mAllDayCheckBox.setChecked(true);
             // put things back in local time for all day events
             mTimezone = Utils.getTimeZone(mActivity, null);
-            mStartTime.timezone = mTimezone;
-            mEndTime.timezone = mTimezone;
-            mEndTime.normalize(true);
+            mStartTime.setTimezone(mTimezone);
+            mEndTime.setTimezone(mTimezone);
+            mEndTime.normalize();
         } else {
             mAllDayCheckBox.setChecked(false);
         }
@@ -867,7 +869,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             setAllDayViewsVisibility(prevAllDay);
         }
 
-        populateTimezone(mStartTime.normalize(true));
+        populateTimezone(mStartTime.normalize());
 
         SharedPreferences prefs = GeneralPreferences.Companion.getSharedPreferences(mActivity);
         String defaultReminderString = prefs.getString(
@@ -1047,8 +1049,8 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                 flags |= DateUtils.FORMAT_24HOUR;
             }
         }
-        long startMillis = mStartTime.normalize(true);
-        long endMillis = mEndTime.normalize(true);
+        long startMillis = mStartTime.normalize();
+        long endMillis = mEndTime.normalize();
         mSB.setLength(0);
         when = DateUtils
                 .formatDateRange(mActivity, mF, startMillis, endMillis, flags, tz).toString();
@@ -1371,19 +1373,19 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
      */
     protected void setAllDayViewsVisibility(boolean isChecked) {
         if (isChecked) {
-            if (mEndTime.hour == 0 && mEndTime.minute == 0) {
+            if (mEndTime.getHour() == 0 && mEndTime.getMinute() == 0) {
                 if (mAllDay != isChecked) {
-                    mEndTime.monthDay--;
+                    mEndTime.setDay(mEndTime.getDay() - 1);
                 }
 
-                long endMillis = mEndTime.normalize(true);
+                long endMillis = mEndTime.normalize();
 
                 // Do not allow an event to have an end time
                 // before the
                 // start time.
-                if (mEndTime.before(mStartTime)) {
+                if (mEndTime.compareTo(mStartTime) < 0) {
                     mEndTime.set(mStartTime);
-                    endMillis = mEndTime.normalize(true);
+                    endMillis = mEndTime.normalize();
                 }
                 setDate(mEndDateButton, endMillis);
                 setTime(mEndTimeButton, endMillis);
@@ -1393,12 +1395,12 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             mEndTimeButton.setVisibility(View.GONE);
             mTimezoneRow.setVisibility(View.GONE);
         } else {
-            if (mEndTime.hour == 0 && mEndTime.minute == 0) {
+            if (mEndTime.getHour() == 0 && mEndTime.getMinute() == 0) {
                 if (mAllDay != isChecked) {
-                    mEndTime.monthDay++;
+                    mEndTime.setDay(mEndTime.getDay() + 1);
                 }
 
-                long endMillis = mEndTime.normalize(true);
+                long endMillis = mEndTime.normalize();
                 setDate(mEndDateButton, endMillis);
                 setTime(mEndTimeButton, endMillis);
             }
@@ -1465,7 +1467,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         long calendarId = c.getLong(idColumn);
         int colorColumn = c.getColumnIndexOrThrow(Calendars.CALENDAR_COLOR);
         int color = c.getInt(colorColumn);
-        int displayColor = Utils.getDisplayColorFromColor(color);
+        int displayColor = Utils.getDisplayColorFromColor(mActivity, color);
 
         // Prevents resetting of data (reminders, etc.) on orientation change.
         if (calendarId == mModel.mCalendarId && mModel.isCalendarColorInitialized() &&
@@ -1523,15 +1525,12 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             if (is24Format) {
                 flags |= DateUtils.FORMAT_24HOUR;
             }
-            long millisStart = mStartTime.toMillis(false);
-            long millisEnd = mEndTime.toMillis(false);
-
-            boolean isDSTStart = mStartTime.isDst != 0;
-            boolean isDSTEnd = mEndTime.isDst != 0;
+            long millisStart = mStartTime.toMillis();
+            long millisEnd = mEndTime.toMillis();
 
             // First update the start date and times
             String tzDisplay = TimeZone.getTimeZone(tz).getDisplayName(
-                    isDSTStart, TimeZone.SHORT, Locale.getDefault());
+                    false, TimeZone.SHORT, Locale.getDefault());
             StringBuilder time = new StringBuilder();
 
             mSB.setLength(0);
@@ -1548,10 +1547,6 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                             mActivity, mF, millisStart, millisStart, flags, tz).toString());
 
             // Make any adjustments needed for the end times
-            if (isDSTEnd != isDSTStart) {
-                tzDisplay = TimeZone.getTimeZone(tz).getDisplayName(
-                        isDSTEnd, TimeZone.SHORT, Locale.getDefault());
-            }
             flags = DateUtils.FORMAT_SHOW_TIME;
             if (is24Format) {
                 flags |= DateUtils.FORMAT_24HOUR;
@@ -1595,8 +1590,8 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             int nameColumn = cursor.getColumnIndexOrThrow(Calendars.CALENDAR_DISPLAY_NAME);
             int ownerColumn = cursor.getColumnIndexOrThrow(Calendars.OWNER_ACCOUNT);
             if (colorBar != null) {
-                colorBar.setBackgroundColor(Utils.getDisplayColorFromColor(cursor
-                        .getInt(colorColumn)));
+                colorBar.setBackgroundColor(Utils.getDisplayColorFromColor(context,
+                        cursor.getInt(colorColumn)));
             }
 
             TextView name = (TextView) view.findViewById(R.id.calendar_name);
@@ -1634,34 +1629,34 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             long endMillis;
             if (mView == mStartTimeButton) {
                 // The start time was changed.
-                int hourDuration = endTime.hour - startTime.hour;
-                int minuteDuration = endTime.minute - startTime.minute;
+                int hourDuration = endTime.getHour() - startTime.getHour();
+                int minuteDuration = endTime.getMinute() - startTime.getMinute();
 
-                startTime.hour = hourOfDay;
-                startTime.minute = minute;
-                startMillis = startTime.normalize(true);
+                startTime.setHour(hourOfDay);
+                startTime.setMinute(minute);
+                startMillis = startTime.normalize();
 
                 // Also update the end time to keep the duration constant.
-                endTime.hour = hourOfDay + hourDuration;
-                endTime.minute = minute + minuteDuration;
+                endTime.setHour(hourOfDay + hourDuration);
+                endTime.setMinute(minute + minuteDuration);
 
                 // Update tz in case the start time switched from/to DLS
                 populateTimezone(startMillis);
             } else {
                 // The end time was changed.
-                startMillis = startTime.toMillis(true);
-                endTime.hour = hourOfDay;
-                endTime.minute = minute;
+                startMillis = startTime.toMillis();
+                endTime.setHour(hourOfDay);
+                endTime.setMinute(minute);
 
                 // Move to the start time if the end time is before the start
                 // time.
-                if (endTime.before(startTime)) {
-                    endTime.monthDay = startTime.monthDay + 1;
+                if (endTime.compareTo(startTime) < 0) {
+                    endTime.setDay(startTime.getDay() + 1);
                 }
                 // Call populateTimezone if we support end time zone as well
             }
 
-            endMillis = endTime.normalize(true);
+            endMillis = endTime.normalize();
 
             setDate(mEndDateButton, endMillis);
             setTime(mStartTimeButton, startMillis);
@@ -1686,14 +1681,14 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                     mStartTimePickerDialog.dismiss();
                 }
                 mStartTimePickerDialog = new TimePickerDialog(mActivity, new TimeListener(v),
-                        mTime.hour, mTime.minute, DateFormat.is24HourFormat(mActivity));
+                        mTime.getHour(), mTime.getMinute(), DateFormat.is24HourFormat(mActivity));
                 dialog = mStartTimePickerDialog;
             } else {
                 if (mEndTimePickerDialog != null) {
                     mEndTimePickerDialog.dismiss();
                 }
                 mEndTimePickerDialog = new TimePickerDialog(mActivity, new TimeListener(v),
-                        mTime.hour, mTime.minute, DateFormat.is24HourFormat(mActivity));
+                        mTime.getHour(), mTime.getMinute(), DateFormat.is24HourFormat(mActivity));
                 dialog = mEndTimePickerDialog;
 
             }
@@ -1724,20 +1719,20 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             long endMillis;
             if (mView == mStartDateButton) {
                 // The start date was changed.
-                int yearDuration = endTime.year - startTime.year;
-                int monthDuration = endTime.month - startTime.month;
-                int monthDayDuration = endTime.monthDay - startTime.monthDay;
+                int yearDuration = endTime.getYear() - startTime.getYear();
+                int monthDuration = endTime.getMonth() - startTime.getMonth();
+                int monthDayDuration = endTime.getDay() - startTime.getDay();
 
-                startTime.year = year;
-                startTime.month = month;
-                startTime.monthDay = monthDay;
-                startMillis = startTime.normalize(true);
+                startTime.setYear(year);
+                startTime.setMonth(month);
+                startTime.setDay(monthDay);
+                startMillis = startTime.normalize();
 
                 // Also update the end date to keep the duration constant.
-                endTime.year = year + yearDuration;
-                endTime.month = month + monthDuration;
-                endTime.monthDay = monthDay + monthDayDuration;
-                endMillis = endTime.normalize(true);
+                endTime.setYear(year + yearDuration);
+                endTime.setMonth(month + monthDuration);
+                endTime.setDay(monthDay + monthDayDuration);
+                endMillis = endTime.normalize();
 
                 // If the start date has changed then update the repeats.
                 populateRepeats();
@@ -1746,15 +1741,15 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                 populateTimezone(startMillis);
             } else {
                 // The end date was changed.
-                startMillis = startTime.toMillis(true);
-                endTime.year = year;
-                endTime.month = month;
-                endTime.monthDay = monthDay;
-                endMillis = endTime.normalize(true);
+                startMillis = startTime.toMillis();
+                endTime.setYear(year);
+                endTime.setMonth(month);
+                endTime.setDay(monthDay);
+                endMillis = endTime.normalize();
 
                 // Do not allow an event to have an end time before the start
                 // time.
-                if (endTime.before(startTime)) {
+                if (endTime.compareTo(startTime) < 0) {
                     endTime.set(startTime);
                     endMillis = startMillis;
                 }
@@ -1791,7 +1786,8 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             if (mDatePickerDialog != null) {
                 mDatePickerDialog.dismiss();
             }
-            mDatePickerDialog = new DatePickerDialog(mActivity, listener, mTime.year, mTime.month, mTime.monthDay);
+            mDatePickerDialog = new DatePickerDialog(mActivity, listener, mTime.getYear(),
+                    mTime.getMonth(), mTime.getDay());
                 mDatePickerDialog.getDatePicker().setFirstDayOfWeek(Utils.getFirstDayOfWeekAsCalendar(mActivity));
                 mDatePickerDialog.show();
         }

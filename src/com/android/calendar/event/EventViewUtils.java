@@ -23,6 +23,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
@@ -49,7 +50,7 @@ public class EventViewUtils {
         Resources resources = context.getResources();
         int value, resId;
 
-        if (minutes % 60 != 0) {
+        if (minutes % 60 != 0 || minutes == 0) {
             value = minutes;
             if (abbrev) {
                 resId = R.plurals.Nmins;
@@ -59,13 +60,36 @@ public class EventViewUtils {
         } else if (minutes % (24 * 60) != 0) {
             value = minutes / 60;
             resId = R.plurals.Nhours;
-        } else {
+        } else if (minutes % (7 * 24 * 60) != 0) {
             value = minutes / (24 * 60);
             resId = R.plurals.Ndays;
+        } else {
+            value = minutes / (7 * 24 * 60);
+            resId = R.plurals.Nweeks;
         }
 
         String format = resources.getQuantityString(resId, value);
         return String.format(format, value);
+    }
+
+    /**
+     * Constructs a list of labels for a list of minute values.
+     * <p>
+     * For example, if the given list of minutes contains 10, 120, 2880 and 40320 (in that order),
+     * the returned list will contain "10 minutes", "2 hours", "2 days" and "4 weeks" (in that
+     * order).
+     * @param context the context to use for resources
+     * @param minutes the list of minutes for which the labels will be constructed
+     * @param abbrev whether the labels shall be abbreviated, if possible
+     * @return a list of labels constructed from the given list of minute values
+     */
+    public static ArrayList<String> constructReminderLabelsFromValues(Context context,
+            ArrayList<Integer> minutes, boolean abbrev) {
+        ArrayList<String> labels = new ArrayList<>(minutes.size());
+        for (int val: minutes) {
+            labels.add(EventViewUtils.constructReminderLabel(context, val, abbrev));
+        }
+        return labels;
     }
 
     /**
@@ -124,9 +148,11 @@ public class EventViewUtils {
             ConstraintLayout layout = reminderItems.get(index);
             Spinner minuteSpinner = (Spinner) layout.findViewById(R.id.reminder_minutes_value);
             Spinner methodSpinner = (Spinner) layout.findViewById(R.id.reminder_method_value);
+            CheckBox minuteSign = (CheckBox) layout.findViewById(R.id.reminder_minutes_sign);
+            int sign = minuteSign.isChecked() ? -1:1;
             int minutes = reminderMinuteValues.get(minuteSpinner.getSelectedItemPosition());
             int method = reminderMethodValues.get(methodSpinner.getSelectedItemPosition());
-            reminders.add(ReminderEntry.valueOf(minutes, method));
+            reminders.add(ReminderEntry.valueOf(sign*minutes, method));
         }
         return reminders;
     }
@@ -251,7 +277,7 @@ public class EventViewUtils {
         Spinner spinner = (Spinner) reminderItem.findViewById(R.id.reminder_minutes_value);
         setReminderSpinnerLabels(activity, spinner, minuteLabels);
 
-        int index = findMinutesInReminderList(minuteValues, newReminder.getMinutes());
+        int index = findMinutesInReminderList(minuteValues, Math.abs(newReminder.getMinutes()));
         spinner.setSelection(index);
 
         if (onItemSelected != null) {
@@ -259,6 +285,8 @@ public class EventViewUtils {
             spinner.setOnItemSelectedListener(onItemSelected);
         }
 
+        CheckBox checkBox = (CheckBox) reminderItem.findViewById(R.id.reminder_minutes_sign);
+        checkBox.setChecked(newReminder.getMinutes()<0);
         /*
          * Configure the alert-method spinner.  Methods not supported by the current Calendar
          * will not be shown.
